@@ -260,11 +260,8 @@ function drawTable(results, table_id) {
   const table = new google.visualization.Table(document.getElementById(table_id));
 
   const options = {
-    title: 'My Chart',
     frozenColumns: 1,
     showRowNumber: false,
-    // width: window.innerWidth,
-    // height: window.innerHeight,
     width: 'auto',
     height: 'auto',
     allowHtml: true,
