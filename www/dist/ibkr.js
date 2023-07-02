@@ -80,17 +80,6 @@ var __webpack_exports__ = {};
 "use strict";
 /* harmony import */ var papaparse__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(460);
 /* harmony import */ var papaparse__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(papaparse__WEBPACK_IMPORTED_MODULE_0__);
-// Kinda works (but bizarre parse() return value?)
-// import { parse } from 'csv-parse/browser/esm';
-
-// import { parse } from 'csv-parse';
-// Doesn't work, "Buffer is unknown"
-// import { parse } from 'csv-parse/sync';
-
-// import chalk from 'chalk';
-// import dateFormat from 'dateformat';
-// const Papa = require('papaparse');
-
 
 
 const fileInput = document.getElementById('fileInput');
