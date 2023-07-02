@@ -8,10 +8,32 @@
 </head>
 
 <body>
-  <input type="file" id="fileInput" multiple>
-
-  <div id="fileContent"></div>
-  <div id="table_div"></div>
+  <div class="container">
+    <div class="item">
+      <p>
+        This tool lets IBKR users see the realized/unrealized Profit & Loss (PNL)
+        for all their positions, grouped by symbol. I.e. if you traded
+        50 different option contracts of a particular stock (and maybe
+        traded the stock itself), you will here see a <b>single</b> position,
+        instead of the 50 (or 51) that IBKR would report.
+      </p>
+      <p>
+        To use this, simply download "Realized & Unrealized" CSV reports
+        provided by IBKR (you can select many). Ideally you should select
+        all CSV since inception of your IBKR account, and make sure the CSV
+        files do not refer to overlapping periods (otherwise the PNL of the
+        overlapping periods will be double-counted).
+      </p>
+      <p>
+        Note that this script processes the files locally, never sends your
+        files anywhere (it doesn't require an internet connection to work).
+      </p>
+    </div>
+    <div class="item">
+      <input type="file" id="fileInput" multiple>
+    </div>
+    <div id="table_div" class="item"></div>
+  </div>
 
   <script src="dist/ibkr.js"></script>
 </body>

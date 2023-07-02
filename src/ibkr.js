@@ -1,15 +1,4 @@
-// Kinda works (but bizarre parse() return value?)
-// import { parse } from 'csv-parse/browser/esm';
-
-// import { parse } from 'csv-parse';
-// Doesn't work, "Buffer is unknown"
-// import { parse } from 'csv-parse/sync';
-
-// import chalk from 'chalk';
-// import dateFormat from 'dateformat';
-// const Papa = require('papaparse');
 import Papa from 'papaparse';
-
 
 const fileInput = document.getElementById('fileInput');
 fileInput.addEventListener('change', async (event) => {

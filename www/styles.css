@@ -1,0 +1,15 @@
+.container {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr 30px 1fr;
+  grid-gap: 0px;
+  place-items: center;
+}
+
+.item {
+  background-color: white;
+  /* padding: 0px; */
+  /* text-align: center; */
+  border-width: 1px;
+  border: 1px solid gray;
+}
