@@ -51,7 +51,6 @@ export class Option {
     this._annualizedMaxGain = this._markPrice * 365 / this._DTE;
     this._maxGainAsChange = this._strike / this._underlyingPrice - 1;
     this._premiumAsPercent = this._markPrice / this._underlyingPrice;
-
   }
 
   get symbol() { return this._symbol; }
@@ -79,12 +78,12 @@ export class Option {
   get breakEvenAsChange() { return this.breakEven / this.underlyingPrice; }
 }
 
-export class PutOption extends Option {
+class PutOption extends Option {
   constructor(struct) {
     super(struct);
     this._breakEven = super.strike - super.premium;
     this._maxLoss = this._breakEven;
-    this._maxGainRatio = this._maxGain / this._maxLoss;
+    this._maxGainRatio = super.maxGain / this._maxLoss;
     this._breakEvenVsHodler = super.underlyingPrice * (1 + this._maxGainRatio);
     this._gainAtCurrentPrice = Math.min(super.underlyingPrice - this._breakEven, this._maxGain);
     this._gainAtCurrentPriceRatio = this._gainAtCurrentPrice / this._maxLoss;
@@ -101,7 +100,7 @@ export class PutOption extends Option {
   get annualizedMaxGainRatio() { return this._annualizedMaxGainRatio; }
 }
 
-export class CallOption extends Option {
+class CallOption extends Option {
   constructor(struct) {
     super(struct);
     this._breakEven = super.strike + super.premium;
@@ -111,4 +110,42 @@ export class CallOption extends Option {
   get breakEven() { return this._breakEven; }
   get gainAtCurrentPrice() { return this._gainAtCurrentPrice; }
   get breakEvenVsShorter() { return this._breakEvenVsShorter; }
+}
+
+function parseDate(dateStr) {
+  const rx = /^(\d+)([A-Z]+)(\d+)$/;
+  const [unused, rawDay, rawMonth, rawYear] = dateStr.match(rx);
+  return new Date(parseInt("20" + rawYear), parseMonth(rawMonth), parseInt(rawDay));
+}
+
+function parseMonth(monthStr) {
+  switch (monthStr) {
+    case 'JAN': return 0;
+    case 'FEB': return 1;
+    case 'MAR': return 2;
+    case 'APR': return 3;
+    case 'MAY': return 4;
+    case 'JUN': return 5;
+    case 'JUL': return 6;
+    case 'AUG': return 7;
+    case 'SEP': return 8;
+    case 'OCT': return 9;
+    case 'NOV': return 10;
+    case 'DEC': return 11;
+  }
+  throw new Error("Unexpected month: [" + monthStr + "]");
+}
+
+export function compareOptionsFn(a, b) {
+  if (a.DTE !== b.DTE) {
+    return b.DTE - a.DTE;
+  }
+  if (a.strike !== b.strike) {
+    if (a.isPut) {
+      return a.strike - b.strike;
+    } else {
+      return b.strike - a.strike;
+    }
+  }
+  return -1;
 }

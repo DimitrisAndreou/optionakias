@@ -19,12 +19,6 @@ function parseStatementCsv(csv_file_content) {
   const result = {};
   let headers = null;
 
-  // const csv_parse_options = {
-  //   bom: true,
-  //   trim: true,
-  //   delimiter: ",",
-  //   relax_quotes: true,
-  // };
   const papa_parse_options = {
     delimiter: ",",
     header: false,
@@ -141,14 +135,12 @@ function report(csv_file_contents) {
       });
     }
   );
-  console.log(pnl);
   pnl.sort((a, b) => {
     if ((a.unrealized === 0.0) != (b.unrealized === 0.0)) {
       return Math.abs(b.unrealized) - Math.abs(a.unrealized);
     }
     return a.symbol.localeCompare(b.symbol)
   });
-  console.log(pnl);
   return {
     processed_statements,
     pnl
@@ -167,7 +159,6 @@ async function processFilesAndReport(files) {
 
 function drawTable(results, table_id) {
   const data = new google.visualization.DataTable();
-  console.log(results[0]);
   data.addColumn("string", "Symbol");
   data.addColumn("number", "Realized");
   data.addColumn("number", "Unrealized");
@@ -185,7 +176,7 @@ function drawTable(results, table_id) {
     allowHtml: true,
   };
 
-  var formatter = new google.visualization.ColorFormat();
+  const formatter = new google.visualization.ColorFormat();
   formatter.addRange(null, 0, 'red', 'white');
   formatter.addRange(0, null, 'green', 'white');
   [1, 2, 3].forEach(col => formatter.format(data, col));

@@ -1,40 +1,208 @@
 /******/ (() => { // webpackBootstrap
+/******/ 	"use strict";
 var __webpack_exports__ = {};
-google.charts.load('current', { 'packages': ['table'] });
 
-fetchByBitOptions("BTC", "PUTS").then(
-  results => drawTable(results, "table_div"),
-  error => console.log(error));
+;// CONCATENATED MODULE: ./src/table.js
+// const dateFormatter = new google.visualization.DateFormat(
+//   { pattern: "dd MMM yyyy" });
+// dateFormatter.format(data, 1);
 
-function drawTable(results, table_id) {
-  const data = new google.visualization.DataTable();
-  results[0].forEach(header => {
-    console.log(`Adding column: ${header}`);
-    data.addColumn('string', header);  // number, boolean
-  });
-  data.addRows(results.slice(1).map(row => {
-    console.log(`Is array? ${Array.isArray(row)}`);
-    console.table(row);
-    return row.map(cell => String(cell));
-  }));
-  // data.addRows([
-  //   ['Mike', { v: 10000, f: '$10,000' }, true, "abc", "abc", "abc"],
-  //   ['Jim', { v: 8000, f: '$8,000' }, false, "abc", "abc", "abc"],
-  //   ['Alice', { v: 12500, f: '$12,500' }, true, "abc", "abc", "abc"],
-  //   ['Bob', { v: 7000, f: '$7,000' }, true, "abc", "abc", "abc"]
-  // ]);
+// const formatter = new google.visualization.ColorFormat();
+// formatter.addRange(null, 0, 'red', 'white');
+// formatter.addRange(0, null, 'green', 'white');
+// [1, 2, 3].forEach(col => formatter.format(data, col));
 
-  const table = new google.visualization.Table(document.getElementById(table_id));
+class Table {
+  constructor(options) {
+    this._columns = [];
+    this._options = {
+      frozenRows: 1,
+      frozenColumns: 0,
+      showRowNumber: false,
+      columnWidth: 200,
+      allowHtml: true,
+      ...options
+    };
+  }
 
-  const options = {
-    frozenColumns: 2,
-    showRowNumber: false,
-    width: 'auto',
-    height: 'auto'
-  };
-  table.draw(data, options);
+  /*
+  type - A string with the data type of the values of the column. The type can
+         be one of the following:
+         'string', 'number', 'boolean', 'date', 'datetime', and 'timeofday'.
+  */
+  defineColumn(header, valueFn, type, formatter) {
+    this._columns.push({
+      header,
+      valueFn,
+      type,
+      formatter
+    });
+    return this;
+  }
+
+  format(rows, table_id) {
+    const data = new google.visualization.DataTable();
+    this._columns.forEach(
+      column => data.addColumn(column.type, column.header));
+
+    data.addRows(rows.map(row => this._columns.map(col => col.valueFn(row))));
+
+    const table = new google.visualization.Table(
+      document.getElementById(table_id));
+
+    // const formatter = new google.visualization.ColorFormat();
+    // formatter.addRange(null, 0, 'red', 'white');
+    // formatter.addRange(0, null, 'green', 'white');
+    // [1, 2, 3].forEach(col => formatter.format(data, col));
+    this._columns.forEach((column, index) => {
+      // if (column.formatter !== undefined)
+      column?.formatter?.format(data, index);
+    });
+    table.draw(data, this._options);
+  }
+  // --> something that takes a list of (puts or calls)
+  //     and turns it into a Google Chart Table ready to use.
 }
 
+google.charts.load('current', { 'packages': ['table'] });
+
+const formatters = {
+  dollars: function () {
+    return new google.visualization.NumberFormat({
+      pattern: '$#,###'
+    });
+  },
+  percent: function () {
+    return new google.visualization.NumberFormat({
+      pattern: '#,###%'
+    });
+  },
+  // money: new google.visualization.NumberFormat({
+  // return new google.visualization.ColorFormat()
+  //   fractionDigits: 0
+  // }),
+};
+
+;// CONCATENATED MODULE: ./src/options.js
+function makeOption(struct) {
+  const [, , , type] = struct.symbol.split("-");
+  if (type === 'P') {
+    return new PutOption(struct);
+  } else if (type === 'C') {
+    return new CallOption(struct);
+  }
+  throw new Error(`Unexpected option type ${type}, from struct: ${struct.symbol}`);
+}
+
+class Option {
+  // Struct:
+  // ask1Iv: "0",
+  // ask1Price: "0"
+  // ask1Size: "0"
+  // bid1Iv: "0"
+  // bid1Price: "5"
+  // bid1Size: "0.01"
+  // change24h: "0"
+  // delta: "0.99238854"
+  // gamma: "0.00000499"
+  // highPrice24h: "0"
+  // indexPrice: "30356.72"
+  // lastPrice: "0"
+  // lowPrice24h: "0"
+  // markIv: "0.6093"
+  // markPrice: "8486.42120764"
+  // openInterest: "0"
+  // predictedDeliveryPrice: "0"
+  // symbol: "BTC-28JUL23-22000-C"
+  // theta: "-2.35199556"
+  // totalTurnover: "0"
+  // totalVolume: "0"
+  // turnover24h: "0"
+  // underlyingPrice: "30475.4"
+  // vega: "1.45050054"
+  // volume24h: "0"
+  constructor(struct) {
+    const [symbol, rawDate, rawStrike, type] = struct.symbol.split("-");
+    this._symbol = symbol;
+    this._expirationDate = parseDate(rawDate);
+    this._DTE = Math.ceil((this._expirationDate - new Date()) / (1000 * 60 * 60 * 24));
+    this._strike = parseFloat(rawStrike);
+    this._type = type;
+    this._bidPrice = parseFloat(struct.bid1Price);
+    this._bidSize = parseFloat(struct.bid1Size);
+    this._markPrice = parseFloat(struct.markPrice);
+    this._askPrice = parseFloat(struct.ask1Price);
+    this._askSize = parseFloat(struct.ask1Size);
+    this._underlyingPrice = parseFloat(struct.indexPrice);
+    this._annualizedMaxGain = this._markPrice * 365 / this._DTE;
+    this._maxGainAsChange = this._strike / this._underlyingPrice - 1;
+    this._premiumAsPercent = this._markPrice / this._underlyingPrice;
+  }
+
+  get symbol() { return this._symbol; }
+  get expirationDate() { return this._expirationDate; }
+  get DTE() { return this._DTE; }
+  get strike() { return this._strike; }
+  get isPut() { return this._type === 'P'; }
+  get isCall() { return this._type === 'C'; }
+
+  get bidPrice() { return this._bidPrice; }
+  get bidSize() { return this._bidSize; }
+  get markPrice() { return this._markPrice; }
+  get askPrice() { return this._askPrice; }
+  get askSize() { return this._askPrice; }
+
+  get maxGain() { return this._markPrice; }
+  get premium() { return this._markPrice; }
+  get premiumAsPercent() { return this._premiumAsPercent; }
+  get maxGainInKind() { return this.premiumAsPercent; }
+  get annualizedMaxGain() { return this._annualizedMaxGain; }
+  get underlyingPrice() { return this._underlyingPrice; }
+  get maxGainAsChange() { return this._maxGainAsChange; }
+
+  // Note that 'breakEven' is defined in subclasses.
+  get breakEvenAsChange() { return this.breakEven / this.underlyingPrice; }
+}
+
+class PutOption extends Option {
+  constructor(struct) {
+    super(struct);
+    this._breakEven = super.strike - super.premium;
+    this._maxLoss = this._breakEven;
+    this._maxGainRatio = super.maxGain / this._maxLoss;
+    this._breakEvenVsHodler = super.underlyingPrice * (1 + this._maxGainRatio);
+    this._gainAtCurrentPrice = Math.min(super.underlyingPrice - this._breakEven, this._maxGain);
+    this._gainAtCurrentPriceRatio = this._gainAtCurrentPrice / this._maxLoss;
+    this._annualizedMaxGainInKind = this._maxGainInKind * 365 / this._DTE;
+    this._annualizedMaxGainRatio = this._maxGainRatio * 365 / this._DTE;
+  }
+  get breakEven() { return this._breakEven; }
+  get maxLoss() { return this._maxLoss; }
+  get maxGainRatio() { return this._maxGainRatio; }
+  get breakEvenVsHodler() { return this._breakEvenVsHodler; }
+  get gainAtCurrentPrice() { return this._gainAtCurrentPrice; }
+  get gainAtCurrentPriceRatio() { return this._gainAtCurrentPriceRatio; }
+  get annualizedMaxGainInKind() { return this._annualizedMaxGainInKind; }
+  get annualizedMaxGainRatio() { return this._annualizedMaxGainRatio; }
+}
+
+class CallOption extends Option {
+  constructor(struct) {
+    super(struct);
+    this._breakEven = super.strike + super.premium;
+    this._gainAtCurrentPrice = Math.min(this._breakEven - super._underlyingPrice, super.maxGain);
+    this._breakEvenVsShorter = super.underlyingPrice - super.premium;
+  }
+  get breakEven() { return this._breakEven; }
+  get gainAtCurrentPrice() { return this._gainAtCurrentPrice; }
+  get breakEvenVsShorter() { return this._breakEvenVsShorter; }
+}
+
+function parseDate(dateStr) {
+  const rx = /^(\d+)([A-Z]+)(\d+)$/;
+  const [unused, rawDay, rawMonth, rawYear] = dateStr.match(rx);
+  return new Date(parseInt("20" + rawYear), parseMonth(rawMonth), parseInt(rawDay));
+}
 
 function parseMonth(monthStr) {
   switch (monthStr) {
@@ -54,199 +222,105 @@ function parseMonth(monthStr) {
   throw new Error("Unexpected month: [" + monthStr + "]");
 }
 
-function parseDate(dateStr) {
-  const rx = /^(\d+)([A-Z]+)(\d+)$/;
-  const [unused, rawDay, rawMonth, rawYear] = dateStr.match(rx);
-  return new Date(parseInt("20" + rawYear), parseMonth(rawMonth), parseInt(rawDay));
-}
-
-function parseOption(struct) {
-  const [symbol, rawDate, rawStrike, type] = struct.symbol.split("-");
-  return new Option(
-    symbol,
-    parseDate(rawDate),
-    parseFloat(rawStrike),
-    type === 'P',
-    parseFloat(struct.markPrice),
-    parseFloat(struct.indexPrice));
-}
-
-class Option {
-  constructor(symbol, expirationDate, strike, isPut, markPrice, underlyingPrice) {
-    this.symbol = symbol;
-    this.expirationDate = expirationDate;
-    this.strike = strike;
-    this.isPut = isPut;
-    this.isCall = !isPut;
-    this.markPrice = markPrice;
-    this.underlyingPrice = underlyingPrice;
-  }
-}
-
-function putDecorations(o) {
-  const premium = o.markPrice;
-  const DTE = Math.ceil((o.expirationDate - new Date()) / (1000 * 60 * 60 * 24));
-  const breakEven = o.strike - premium;
-  const maxGain = premium;
-  const maxLoss = breakEven;
-  const maxGainRatio = maxGain / maxLoss;
-  const maxGainInKind = maxGain / o.underlyingPrice;
-  const gainAtCurrentPrice = Math.min(o.underlyingPrice - breakEven, maxGain);
-  const gainAtCurrentPriceRatio = gainAtCurrentPrice / maxLoss;
-  const result = {
-    DTE: DTE,
-    breakEven,
-    breakEvenAsChange: breakEven / o.underlyingPrice - 1,
-
-    maxGain,
-    maxLoss,
-
-    maxGainRatio,
-    maxGainAsChange: o.strike / o.underlyingPrice - 1,
-
-    breakEvenVsHodler: o.underlyingPrice * (1 + maxGainRatio),
-
-    annualizedMaxGain: maxGain * 365 / DTE,
-    annualizedMaxGainInKind: maxGainInKind * 365 / DTE,
-    annualizedMaxGainRatio: maxGainRatio * 365 / DTE,
-
-    gainAtCurrentPrice,
-    gainAtCurrentPriceRatio,
-  };
-
-  return result;
-}
-
-function renderDecoratedPut(put) {
-  return {
-    "SYMBOL": put.option.symbol,
-    "EXPIRATION DATE": put.option.expirationDate,
-    "DAYS TILL EXPIRATION": put.decorations.DTE,
-    ["STRIKE ($" + put.option.underlyingPrice + ")"]: put.option.strike,
-    "PREMIUM (=MAX GAIN) ($)": put.option.markPrice,
-    "BREAKEVEN (=MAX LOSS) ($)": put.decorations.breakEven,
-    "BREAKEVEN (%)": put.decorations.breakEvenAsChange,
-    "MAX GAIN (%)": put.decorations.maxGainRatio,
-    // "GAIN AT CURRENT PRICE (%)": put.decorations.gainAtCurrentPriceRatio,
-    ["MAX GAIN WHEN " + put.option.symbol + " PERFORMS BETTER THAN (%)"]: put.decorations.maxGainAsChange,
-    "BREAKEVEN VS HODLER": put.decorations.breakEvenVsHodler,
-    "APR (%)": put.decorations.annualizedMaxGainRatio,
-  };
-}
-
-function extractPuts(options) {
-  const decoratedPuts = options
-    .filter(option => option.isPut)
-    .map(option => {
-      return {
-        option: option,
-        decorations: putDecorations(option)
-      };
-    });
-
-  decoratedPuts.sort(compareOptionsFn);
-  return decoratedPuts.map(put => renderDecoratedPut(put));
-}
-
-function callDecorations(o) {
-  const premium = o.markPrice;
-  const DTE = Math.ceil((o.expirationDate - new Date()) / (1000 * 60 * 60 * 24));
-  const breakEven = o.strike + premium;
-  const maxGain = premium;
-  const maxGainInKind = maxGain / o.underlyingPrice;
-  const gainAtCurrentPrice = Math.min(breakEven - o.underlyingPrice, maxGain);
-  const result = {
-    DTE,
-    strikeAsChange: (o.strike / o.underlyingPrice) - 1,
-    premiumAsPercent: premium / o.underlyingPrice,
-
-    breakEven,
-    breakEvenAsChange: breakEven / o.underlyingPrice - 1,
-
-    maxGain,
-    maxGainAsChange: o.strike / o.underlyingPrice - 1,
-
-    maxGainInKind,
-
-    breakEvenVsShorter: o.underlyingPrice - premium,
-
-    annualizedMaxGain: maxGain * 365 / DTE,
-    annualizedMaxGainInKind: maxGainInKind * 365 / DTE,
-
-    gainAtCurrentPrice,
-  };
-
-  return result;
-}
-
-function renderDecoratedCall(call) {
-  return {
-    "SYMBOL": call.option.symbol,
-    "EXPIRATION DATE": call.option.expirationDate,
-    "DAYS TILL EXPIRATION": call.decorations.DTE,
-    ["STRIKE ($" + call.option.underlyingPrice + ")"]: call.option.strike,
-    "PREMIUM (=MAX GAIN) ($)": call.option.markPrice,
-    "PREMIUM (%)": call.decorations.premiumAsPercent,
-    "STRIKE (%)": call.decorations.strikeAsChange,
-    "BREAKEVEN ($)": call.decorations.breakEven,
-    "BREAKEVEN (%)": call.decorations.breakEvenAsChange,
-    ["MAX GAIN WHEN " + call.option.symbol + " PERFORMS WORSE THAN (%)"]: call.decorations.maxGainAsChange,
-    "BREAKEVEN VS SPOT SHORT": call.decorations.breakEvenVsShorter,
-  };
-}
-
-function extractCalls(options) {
-  const decoratedCalls = options
-    .filter(option => option.isCall)
-    .map(option => {
-      return {
-        option: option,
-        decorations: callDecorations(option)
-      };
-    });
-
-  decoratedCalls.sort(compareOptionsFn);
-  return decoratedCalls.map(call => renderDecoratedCall(call));
-}
-
 function compareOptionsFn(a, b) {
-  if (a.decorations.DTE !== b.decorations.DTE) {
-    return b.decorations.DTE - a.decorations.DTE;
+  if (a.DTE !== b.DTE) {
+    return b.DTE - a.DTE;
   }
-  if (a.option.strike !== b.option.strike) {
-    if (a.option.isPut) {
-      return a.option.strike - b.option.strike;
+  if (a.strike !== b.strike) {
+    if (a.isPut) {
+      return a.strike - b.strike;
     } else {
-      return b.option.strike - a.option.strike;
+      return b.strike - a.strike;
     }
   }
   return -1;
 }
 
-// type: PUTS, CALLS
-async function fetchByBitOptions(ticker = 'BTC', type = 'PUTS', argUsedToInvalidateCache = 0.0) {
-  try {
-    const response = await fetch('https://api.bybit.com/v5/market/tickers?category=option&baseCoin=' + ticker);
-    const body = await response.text();
-    return processBybitOptions(type, body);
-  } catch (error) {
-    console.log(error);
-    return [error];
-  }
+;// CONCATENATED MODULE: ./src/bybit.js
+
+
+
+google.charts.load('current', { 'packages': ['table'] });
+
+loadOptions("BTC");
+
+function loadOptions(symbol) {
+  fetchByBitOptions(symbol).then(
+    ({ puts, calls }) => {
+      drawPutsTable(symbol, puts, "puts_table");
+      drawCallsTable(symbol, calls, "calls_table");
+    },
+    error => {
+      console.error(error.stack);
+      alert(`Error: ${error}`);
+    }
+  );
 }
 
-function processBybitOptions(type, jsonResponse) {
-  const response = JSON.parse(jsonResponse);
-  if (response.retCode !== 0) {
-    throw new Error("ByBit returned error: " + response.retMsg);
-  }
-  const options = response.result.list.map(struct => parseOption(struct));
-  const renderedOptions = (type === 'CALLS') ? extractCalls(options) : extractPuts(options);
 
-  let output = [];
-  output.push(Object.keys(renderedOptions[0]));
-  renderedOptions.forEach(elem => output.push(Object.values(elem)));
-  return output;
+function drawPutsTable(symbol, puts, table_id) {
+  const putsTable = new Table({
+    frozenColumns: 4
+  })
+    .defineColumn("SYMBOL", () => symbol, "string")
+    .defineColumn("EXPIRATION DATE", put => put.expirationDate, "date")
+    .defineColumn("DAYS TILL EXPIRATION", put => put.DTE, "number")
+    .defineColumn("STRIKE", put => put.strike, "number", formatters.dollars())
+    .defineColumn("PREMIUM (=MAX GAIN) ($)", put => put.markPrice, "number", formatters.dollars())
+    .defineColumn("BREAKEVEN (=MAX LOSS) ($)", put => put.breakEven, "number", formatters.dollars())
+    .defineColumn("BREAKEVEN (%)", put => put.breakEvenAsChange, "number", formatters.percent())
+    .defineColumn("MAX GAIN (%)", put => put.maxGainRatio, "number", formatters.percent())
+    .defineColumn("MAX GAIN WHEN " + symbol + " PERFORMS BETTER THAN (%)",
+      put => put.maxGainAsChange, "number", formatters.percent())
+    .defineColumn("BREAKEVEN VS HODLER", put => put.breakEvenVsHodler, "number", formatters.dollars())
+    .defineColumn("APR (%)", put => put.annualizedMaxGainRatio, "number", formatters.percent())
+    ;
+  putsTable.format(puts, table_id);
+}
+
+function drawCallsTable(symbol, calls, table_id) {
+  const callsTable = new Table({
+    frozenColumns: 4
+  })
+    .defineColumn("SYMBOL", () => symbol, "string")
+    .defineColumn("EXPIRATION DATE", call => call.expirationDate, "date")
+    .defineColumn("DAYS TILL EXPIRATION", call => call.DTE, "number")
+    .defineColumn("STRIKE", call => call.strike, "number", formatters.dollars())
+    .defineColumn("PREMIUM (=MAX GAIN) ($)", call => call.markPrice, "number", formatters.dollars())
+    .defineColumn("PREMIUM (%)", call => call.premiumAsPercent, "number", formatters.percent())
+    // "BREAKEVEN ($)": call.decorations.breakEven,
+    // "BREAKEVEN (%)": call.decorations.breakEvenAsChange,
+    // ["MAX GAIN WHEN " + call.option.symbol + " PERFORMS WORSE THAN (%)"]: call.decorations.maxGainAsChange,
+    // "BREAKEVEN VS SPOT SHORT": call.decorations.breakEvenVsShorter,
+    ;
+  callsTable.format(calls, table_id);
+}
+
+async function fetchByBitOptions(ticker = 'BTC') {
+  try {
+    const rawResponse = await fetch('https://api.bybit.com/v5/market/tickers?category=option&baseCoin=' + ticker);
+    const response = JSON.parse(await rawResponse.text());
+    if (response.retCode !== 0) {
+      throw new Error("ByBit returned error: " + response.retMsg);
+    }
+    const options = response.result.list.map(struct => makeOption(struct));
+    if (!options.length) {
+      alert(`No option fetched from ByBit (you probably got rate limited...try again later)`);
+    }
+    const puts = options.filter(option => option.isPut);
+    const calls = options.filter(option => option.isCall);
+
+    puts.sort(compareOptionsFn);
+    calls.sort(compareOptionsFn);
+    const result = {
+      puts,
+      calls
+    };
+    return result;
+  } catch (error) {
+    alert(`Error fetching Bybit data: ${error}`);
+    return [error];
+  }
 }
 
 /******/ })()

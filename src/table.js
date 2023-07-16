@@ -1,45 +1,79 @@
-export default class Table {
-  constructor() {
-    this.columns = {};
-  }
+// const dateFormatter = new google.visualization.DateFormat(
+//   { pattern: "dd MMM yyyy" });
+// dateFormatter.format(data, 1);
 
-  defineColumn(name, caption, type, formatter) {
-    this.columns[name] = {
-      caption,
-      type,
-      formatter
+// const formatter = new google.visualization.ColorFormat();
+// formatter.addRange(null, 0, 'red', 'white');
+// formatter.addRange(0, null, 'green', 'white');
+// [1, 2, 3].forEach(col => formatter.format(data, col));
+
+export class Table {
+  constructor(options) {
+    this._columns = [];
+    this._options = {
+      frozenRows: 1,
+      frozenColumns: 0,
+      showRowNumber: false,
+      columnWidth: 200,
+      allowHtml: true,
+      ...options
     };
   }
 
-  format(rows) {
+  /*
+  type - A string with the data type of the values of the column. The type can
+         be one of the following:
+         'string', 'number', 'boolean', 'date', 'datetime', and 'timeofday'.
+  */
+  defineColumn(header, valueFn, type, formatter) {
+    this._columns.push({
+      header,
+      valueFn,
+      type,
+      formatter
+    });
+    return this;
+  }
+
+  format(rows, table_id) {
     const data = new google.visualization.DataTable();
-    this.columns.forEach(
-      column => data.addColumn(column.type, column.caption));
+    this._columns.forEach(
+      column => data.addColumn(column.type, column.header));
 
-    // data.addColumn("string", "Symbol");
-    // data.addColumn("number", "Realized");
-    // data.addColumn("number", "Unrealized");
-    // data.addColumn("number", "TOTAL");
-    // data.addRows(results.pnl.map(pnl =>
-    //   [pnl.symbol, pnl.realized, pnl.unrealized, pnl.total]));
+    data.addRows(rows.map(row => this._columns.map(col => col.valueFn(row))));
 
-    // const table = new google.visualization.Table(document.getElementById(table_id));
-
-    // const options = {
-    //   frozenColumns: 1,
-    //   showRowNumber: false,
-    //   width: 'auto',
-    //   height: 'auto',
-    //   allowHtml: true,
-    // };
+    const table = new google.visualization.Table(
+      document.getElementById(table_id));
 
     // const formatter = new google.visualization.ColorFormat();
     // formatter.addRange(null, 0, 'red', 'white');
     // formatter.addRange(0, null, 'green', 'white');
     // [1, 2, 3].forEach(col => formatter.format(data, col));
-    // table.draw(data, options);
-
+    this._columns.forEach((column, index) => {
+      // if (column.formatter !== undefined)
+      column?.formatter?.format(data, index);
+    });
+    table.draw(data, this._options);
   }
   // --> something that takes a list of (puts or calls)
   //     and turns it into a Google Chart Table ready to use.
 }
+
+google.charts.load('current', { 'packages': ['table'] });
+
+export const formatters = {
+  dollars: function () {
+    return new google.visualization.NumberFormat({
+      pattern: '$#,###'
+    });
+  },
+  percent: function () {
+    return new google.visualization.NumberFormat({
+      pattern: '#,###%'
+    });
+  },
+  // money: new google.visualization.NumberFormat({
+  // return new google.visualization.ColorFormat()
+  //   fractionDigits: 0
+  // }),
+};

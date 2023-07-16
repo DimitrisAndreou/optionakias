@@ -1,0 +1,28 @@
+.container {
+  display: grid;
+  height: 100vh;
+  grid-template-rows: 80% 80%;
+  grid-template-columns: 80%;
+  grid-gap: 0px;
+  justify-content: center;
+  justify-items: center;
+}
+
+.table {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ccc;
+}
+
+.google-visualization-table-table {
+  table-layout: fixed;
+  /* Use fixed table layout */
+}
+
+.google-visualization-table-th {
+  white-space: normal !important;
+  /* Allow text to wrap */
+  word-wrap: break-word;
+  /* Enable word wrapping */
+}
