@@ -1,12 +1,21 @@
 .container {
   display: grid;
-  grid-template-columns: 1fr;
-  grid-template-rows: min-content 30px 1fr;
-  grid-gap: 0px;
-  justify-items: center;
+  grid-template-columns: 50% 50%;
+  grid-template-rows: min-content 30px min-content;
+  grid-gap: 5px;
 }
 
 .results {
-  border-width: 1px;
-  border: 1px solid gray;
+  justify-self: right;
+  padding: 10px;
+}
+
+.span-two-columns {
+  justify-self: center;
+  grid-column: span 2;
+}
+
+.files {
+  justify-self: left;
+  padding: 10px
 }

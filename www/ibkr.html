@@ -9,7 +9,7 @@
 
 <body>
   <div class="container">
-    <div>
+    <div class="span-two-columns">
       <p>
         This tool lets IBKR users see the realized/unrealized Profit & Loss (PNL)
         for all their positions, grouped by symbol. I.e. if you traded
@@ -29,10 +29,14 @@
         files anywhere (it doesn't require an internet connection to work).
       </p>
     </div>
-    <div>
+    <div class="span-two-columns">
       <input type="file" id="fileInput" multiple>
     </div>
     <div id="table_div" class="results"></div>
+    <div id="processed_files_div" class="files">
+      <!-- <p>Processed files:</p>
+      <ul id="processed_files_list"></ul> -->
+    </div>
   </div>
 
   <script src="dist/ibkr.js"></script>

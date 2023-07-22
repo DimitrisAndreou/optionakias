@@ -8,7 +8,10 @@ fileInput.addEventListener('change', async (event) => {
 function readFileAsync(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => resolve({
+      file: file,
+      fileContent: reader.result
+    });
     reader.onerror = reject;
     reader.readAsText(file);
   });
@@ -49,8 +52,8 @@ function parseStatementCsv(csv_file_content) {
   return result;
 }
 
-function processCsv(csv_file_content) {
-  const parsed_csv = parseStatementCsv(csv_file_content);
+function processCsv(csv_file) {
+  const parsed_csv = parseStatementCsv(csv_file.fileContent);
   // { Period: 'September 1, 2022 - December 30, 2022' }
   const dates = parsed_csv.Statement
     .filter(x => 'Period' in x)
@@ -66,7 +69,7 @@ function processCsv(csv_file_content) {
       unrealized: parseFloat(row['Unrealized Total']),
     }));
   return {
-    // csv_file,  // Would be nice to retain the filename here
+    file: csv_file.file,
     from_date: dates[0],
     to_date: dates[1],
     instruments
@@ -85,9 +88,9 @@ function* instruments(...processed_statements) {
   }
 }
 
-function report(csv_file_contents) {
-  const processed_statements = csv_file_contents
-    .map(csv_file_content => processCsv(csv_file_content))
+function report(loadedCsvFiles) {
+  const processed_statements = loadedCsvFiles
+    .map(loadedCsvFile => processCsv(loadedCsvFile))
     .sort((a, b) => {
       return b.from_date - a.from_date;
     });
@@ -150,10 +153,10 @@ function report(csv_file_contents) {
 google.charts.load('current', { 'packages': ['table'] });
 
 async function processFilesAndReport(files) {
-  const file_contents = await Promise.all(Array.from(files).map(file => readFileAsync(file)));
-  const result = report(Array.from(file_contents));
-  console.table(result);
+  const loadedFiles = await Promise.all(Array.from(files).map(file => readFileAsync(file)));
+  const result = report(Array.from(loadedFiles));
   drawTable(result, "table_div");
+  showProcessedFiles(result, "processed_files_div");
   return result;
 }
 
@@ -183,52 +186,52 @@ function drawTable(results, table_id) {
   table.draw(data, options);
 }
 
-  // console.log(chalk.bold.green("Processed:"));
-  // for (const statement of result.processed_statements) {
-  //   console.log(
-  //     " from",
-  //     chalk.bold(`${ dateToStr(statement.from_date)
-    // }`),
-  //     "to",
-  //     chalk.bold(`${ dateToStr(statement.to_date) } `),
-  //     ":", `${ statement.csv_file } `);
-  // }
+function showProcessedFiles(results, processed_files_div_id) {
+  function newElem(parent, type, text, cssClass) {
+    const elem = document.createElement(type);
+    if (text) {
+      elem.textContent = text;
+    }
+    if (cssClass) {
+      elem.classList.add(cssClass);
+    }
+    parent.appendChild(elem);
+    return elem;
+  }
+  function dateToStr(date) {
+    const months = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+  }
+  function checkOverlappingStatements(statements) {
+    function inRange(x, min, max) {
+      return min <= x && x <= max;
+    }
+    function overlaps(s1, s2) {
+      return inRange(s2.from_date, s1.from_date, s1.to_date);
+    }
+    for (let i = 0; i < statements.length; ++i) {
+      for (let j = 0; j < statements.length; ++j) {
+        if (i == j) continue;
+        if (overlaps(statements[i], statements[j])) {
+          alert(`Cannot trust results, periods are overlapping, thus results are double counted: \n`
+            + `1. file: ${statements[i].file.name}, from: ${dateToStr(statements[i].from_date)} to ${dateToStr(statements[i].to_date)}\n`
+            + `2. file: ${statements[j].file.name}, from: ${dateToStr(statements[j].from_date)} to ${dateToStr(statements[j].to_date)}\n`
+          );
+          return;
+        }
+      }
+    }
+  }
 
-  // const overlapping_statements = detectOverlappingStatements(result.processed_statements);
-  // if (overlapping_statements) {
-  //   console.log(
-  //     chalk.bold.red("ERROR: Overlapping statements"),
-  //     "(cannot trust results, overlapping periods were double counted)");
-  //   overlapping_statements.forEach(statement =>
-  //     console.log(
-  //       " from",
-  //       chalk.red.bold(`${ dateToStr(statement.from_date) } `),
-  //       "to",
-  //       chalk.red.bold(`${ dateToStr(statement.to_date) } `),
-  //       ":", `${ statement.csv_file } `)
-  //   );
-  // }
-
-  // function dateToStr(date) {
-  //   return dateFormat(date, "dd mmm yyyy")
-  // }
-
-  // function detectOverlappingStatements(statements) {
-  //   function inRange(x, min, max) {
-  //     return min <= x && x <= max;
-  //   }
-  //   function overlaps(s1, s2) {
-  //     return inRange(s2.from_date, s1.from_date, s1.to_date);
-  //   }
-  //   for (let i = 0; i < statements.length; ++i) {
-  //     for (let j = 0; j < statements.length; ++j) {
-  //       if (i == j) continue;
-  //       if (overlaps(statements[i], statements[j])) {
-  //         return [statements[i], statements[j]];
-  //       }
-  //     }
-  //   }
-  //   //
-  //   return null;
-  // }
-  // }
+  const filesDiv = document.getElementById(processed_files_div_id);
+  filesDiv.innerHTML = "";
+  newElem(filesDiv, "p", "Processed periods/files:");
+  const ul = newElem(filesDiv, "ul");
+  results.processed_statements.forEach(statement => {
+    newElem(ul, "li", `From ${dateToStr(statement.from_date)} to ${dateToStr(statement.to_date)}: ${statement.file.name}`);
+  });
+  checkOverlappingStatements(results.processed_statements);
+}
