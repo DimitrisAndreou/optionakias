@@ -48,8 +48,8 @@ function drawCallsTable(symbol, calls, table_id) {
     .defineColumn("STRIKE", call => call.strike, "number", formatters.dollars())
     .defineColumn("PREMIUM (=MAX GAIN) ($)", call => call.markPrice, "number", formatters.dollars())
     .defineColumn("PREMIUM (%)", call => call.premiumAsPercent, "number", formatters.percent())
-    // "BREAKEVEN ($)": call.decorations.breakEven,
-    // "BREAKEVEN (%)": call.decorations.breakEvenAsChange,
+    .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
+    .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent())
     // ["MAX GAIN WHEN " + call.option.symbol + " PERFORMS WORSE THAN (%)"]: call.decorations.maxGainAsChange,
     // "BREAKEVEN VS SPOT SHORT": call.decorations.breakEvenVsShorter,
     ;

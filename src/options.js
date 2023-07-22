@@ -75,7 +75,7 @@ export class Option {
   get maxGainAsChange() { return this._maxGainAsChange; }
 
   // Note that 'breakEven' is defined in subclasses.
-  get breakEvenAsChange() { return this.breakEven / this.underlyingPrice; }
+  get breakEvenAsChange() { return this.breakEven / this.underlyingPrice - 1.0; }
 }
 
 class PutOption extends Option {
