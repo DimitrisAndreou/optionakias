@@ -50,7 +50,6 @@ export class Table {
     // formatter.addRange(0, null, 'green', 'white');
     // [1, 2, 3].forEach(col => formatter.format(data, col));
     this._columns.forEach((column, index) => {
-      // if (column.formatter !== undefined)
       column?.formatter?.format(data, index);
     });
     table.draw(data, this._options);

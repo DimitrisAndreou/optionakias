@@ -55,7 +55,6 @@ class Table {
     // formatter.addRange(0, null, 'green', 'white');
     // [1, 2, 3].forEach(col => formatter.format(data, col));
     this._columns.forEach((column, index) => {
-      // if (column.formatter !== undefined)
       column?.formatter?.format(data, index);
     });
     table.draw(data, this._options);
@@ -241,8 +240,7 @@ function compareOptionsFn(a, b) {
 
 
 google.charts.load('current', { 'packages': ['table'] });
-
-loadOptions("BTC");
+google.charts.setOnLoadCallback(() => loadOptions("BTC"));
 
 function loadOptions(symbol) {
   fetchByBitOptions(symbol).then(
@@ -296,10 +294,34 @@ function drawCallsTable(symbol, calls, table_id) {
   callsTable.format(calls, table_id);
 }
 
+function cacheKey(ticker) {
+  return ticker;
+}
+
+async function getByBitDataFromCacheOrService(ticker) {
+  const cachedData = JSON.parse(localStorage.getItem(cacheKey(ticker)));
+  if (cachedData && Date.now() < cachedData.expirationTimestamp) {
+    console.log("Using cache");
+    console.log(cachedData.response);
+    return cachedData.response;
+  }
+  const rawResponse = await fetch('https://api.bybit.com/v5/market/tickers?category=option&baseCoin=' + ticker);
+  const response = JSON.parse(await rawResponse.text());
+  if (response.retCode !== 0) {
+    throw new Error("ByBit returned error: " + response.retMsg);
+  }
+  localStorage.setItem(cacheKey(ticker), JSON.stringify({
+    response,
+    expirationTimestamp: Date.now() + 10 * 60 * 1000,
+  }));
+  console.log("Using API; populating cache");
+  console.log(response);
+  return response;
+}
+
 async function fetchByBitOptions(ticker = 'BTC') {
   try {
-    const rawResponse = await fetch('https://api.bybit.com/v5/market/tickers?category=option&baseCoin=' + ticker);
-    const response = JSON.parse(await rawResponse.text());
+    const response = await getByBitDataFromCacheOrService(ticker);
     if (response.retCode !== 0) {
       throw new Error("ByBit returned error: " + response.retMsg);
     }
