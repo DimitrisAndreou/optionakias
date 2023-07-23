@@ -3,10 +3,8 @@
 }
 
 .container {
-  /* display: grid; */
-  /* height: 100vh;
-  grid-template-rows: 80% 80%;
-  grid-template-columns: 100%; */
+  display: grid;
+  grid-template-rows: 1fr 1fr;
   grid-gap: 0px;
   justify-content: center;
   justify-items: center;
@@ -14,6 +12,7 @@
 
 .table {
   display: flex;
+  height: 600px;
   align-items: center;
   justify-content: center;
   border: 1px solid #ccc;
