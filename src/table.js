@@ -49,9 +49,11 @@ export class Table {
     // formatter.addRange(null, 0, 'red', 'white');
     // formatter.addRange(0, null, 'green', 'white');
     // [1, 2, 3].forEach(col => formatter.format(data, col));
+    // data.setProperty(0, 0, 'style', 'width:150px');
     this._columns.forEach((column, index) => {
       column?.formatter?.format(data, index);
     });
+    data.setProperty(0, 0, 'style', 'width:100px');
     table.draw(data, this._options);
   }
   // --> something that takes a list of (puts or calls)

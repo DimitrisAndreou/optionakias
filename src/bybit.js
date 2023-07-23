@@ -2,13 +2,16 @@ import { Table, formatters } from './table.js'
 import { makeOption, compareOptionsFn } from './options.js'
 
 google.charts.load('current', { 'packages': ['table'] });
-google.charts.setOnLoadCallback(() => loadOptions("BTC"));
+google.charts.setOnLoadCallback(() => {
+  loadOptions("BTC");
+  // loadOptions("ETH");
+});
 
 function loadOptions(symbol) {
   fetchByBitOptions(symbol).then(
     ({ puts, calls }) => {
-      drawPutsTable(symbol, puts, "puts_table");
-      drawCallsTable(symbol, calls, "calls_table");
+      drawPutsTable(symbol, puts, symbol + "_puts_table");
+      drawCallsTable(symbol, calls, symbol + "_calls_table");
     },
     error => {
       console.error(error.stack);
@@ -22,17 +25,16 @@ function drawPutsTable(symbol, puts, table_id) {
   const putsTable = new Table({
     frozenColumns: 4
   })
-    .defineColumn("SYMBOL", () => symbol, "string")
-    .defineColumn("EXPIRATION DATE", put => put.expirationDate, "date")
-    .defineColumn("DAYS TILL EXPIRATION", put => put.DTE, "number")
-    .defineColumn("STRIKE", put => put.strike, "number", formatters.dollars())
-    .defineColumn("PREMIUM (=MAX GAIN) ($)", put => put.markPrice, "number", formatters.dollars())
-    .defineColumn("BREAKEVEN (=MAX LOSS) ($)", put => put.breakEven, "number", formatters.dollars())
+    .defineColumn("EXPIRATION<br>DATE", put => put.expirationDate, "date")
+    .defineColumn("DTE", put => put.DTE, "number")
+    .defineColumn(`${symbol} PUT<br>STRIKE`, put => put.strike, "number", formatters.dollars())
+    .defineColumn("PREMIUM ($)<br>(=MAX GAIN)", put => put.markPrice, "number", formatters.dollars())
+    .defineColumn("BREAKEVEN ($)<br>(=MAX LOSS)", put => put.breakEven, "number", formatters.dollars())
     .defineColumn("BREAKEVEN (%)", put => put.breakEvenAsChange, "number", formatters.percent())
     .defineColumn("MAX GAIN (%)", put => put.maxGainRatio, "number", formatters.percent())
-    .defineColumn("MAX GAIN WHEN " + symbol + " PERFORMS BETTER THAN (%)",
+    .defineColumn("MAX GAIN<br>WHEN " + symbol + "<br>PERFORMS BETTER<br>THAN (%)",
       put => put.maxGainAsChange, "number", formatters.percent())
-    .defineColumn("BREAKEVEN VS HODLER", put => put.breakEvenVsHodler, "number", formatters.dollars())
+    .defineColumn("BREAKEVEN<br>VS HODLER", put => put.breakEvenVsHodler, "number", formatters.dollars())
     .defineColumn("APR (%)", put => put.annualizedMaxGainRatio, "number", formatters.percent())
     ;
   putsTable.format(puts, table_id);
@@ -42,10 +44,10 @@ function drawCallsTable(symbol, calls, table_id) {
   const callsTable = new Table({
     frozenColumns: 4
   })
-    .defineColumn("SYMBOL", () => symbol, "string")
+    .defineColumn("SYMBOL", () => symbol + " CALLS", "string")
     .defineColumn("EXPIRATION DATE", call => call.expirationDate, "date")
     .defineColumn("DAYS TILL EXPIRATION", call => call.DTE, "number")
-    .defineColumn("STRIKE", call => call.strike, "number", formatters.dollars())
+    .defineColumn(`${symbol} CALL<br>STRIKE`, call => call.strike, "number", formatters.dollars())
     .defineColumn("PREMIUM (=MAX GAIN) ($)", call => call.markPrice, "number", formatters.dollars())
     .defineColumn("PREMIUM (%)", call => call.premiumAsPercent, "number", formatters.percent())
     .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
