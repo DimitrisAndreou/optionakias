@@ -41,10 +41,28 @@ function drawPutsTable(symbol, puts, table_id) {
   putsTable.format(puts, table_id);
 }
 
+function drawCallsTable(symbol, calls, table_id) {
+  const callsTable = new Table({
+    frozenColumns: 4
+  })
+    .defineColumn("SYMBOL", () => symbol + " CALLS", "string")
+    .defineColumn("EXPIRATION DATE", call => call.expirationDate, "date")
+    .defineColumn("DAYS TILL EXPIRATION", call => call.DTE, "number")
+    .defineColumn(`${symbol} CALL<br>STRIKE`, call => call.strike, "number", formatters.dollars())
+    .defineColumn("PREMIUM (=MAX GAIN) ($)", call => call.markPrice, "number", formatters.dollars())
+    .defineColumn("PREMIUM (%)", call => call.premiumAsPercent, "number", formatters.percent())
+    .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
+    .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent())
+    // ["MAX GAIN WHEN " + call.option.symbol + " PERFORMS WORSE THAN (%)"]: call.decorations.maxGainAsChange,
+    // "BREAKEVEN VS SPOT SHORT": call.decorations.breakEvenVsShorter,
+    ;
+  callsTable.format(calls, table_id);
+}
+
 function drawPutsChart(symbol, puts, chart_id) {
   const options = {
     title: `All ${symbol} Puts (Each line is an expiration date, N days from today)`,
-    hAxis: { title: 'Break Even', format: '$#,###', direction: -1 },
+    hAxis: { title: `$ Strike (the price you promise to buy ${symbol} at)`, format: '$#,###', direction: -1 },
     vAxis: { title: 'Max Gain %', format: '#,###%' },
     legend: { position: 'top' },
     curveType: 'function',
@@ -66,7 +84,7 @@ function drawPutsChart(symbol, puts, chart_id) {
     .filter(put => put.strike <= put.underlyingPrice)
     .forEach(put => {
       const row = Array(1 + dteToSeries.size * 2);
-      row[0] = put.breakEven;
+      row[0] = put.strike;
 
       const series = dteToSeries.get(put.DTE);
       row[1 + series * 2 + 0] = put.maxGainRatio;
@@ -79,24 +97,6 @@ function drawPutsChart(symbol, puts, chart_id) {
 
   const chart = new google.visualization.LineChart(document.getElementById(chart_id));
   chart.draw(data, options);
-}
-
-function drawCallsTable(symbol, calls, table_id) {
-  const callsTable = new Table({
-    frozenColumns: 4
-  })
-    .defineColumn("SYMBOL", () => symbol + " CALLS", "string")
-    .defineColumn("EXPIRATION DATE", call => call.expirationDate, "date")
-    .defineColumn("DAYS TILL EXPIRATION", call => call.DTE, "number")
-    .defineColumn(`${symbol} CALL<br>STRIKE`, call => call.strike, "number", formatters.dollars())
-    .defineColumn("PREMIUM (=MAX GAIN) ($)", call => call.markPrice, "number", formatters.dollars())
-    .defineColumn("PREMIUM (%)", call => call.premiumAsPercent, "number", formatters.percent())
-    .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
-    .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent())
-    // ["MAX GAIN WHEN " + call.option.symbol + " PERFORMS WORSE THAN (%)"]: call.decorations.maxGainAsChange,
-    // "BREAKEVEN VS SPOT SHORT": call.decorations.breakEvenVsShorter,
-    ;
-  callsTable.format(calls, table_id);
 }
 
 function cacheKey(ticker) {
