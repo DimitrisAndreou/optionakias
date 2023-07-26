@@ -3,15 +3,6 @@
 var __webpack_exports__ = {};
 
 ;// CONCATENATED MODULE: ./src/table.js
-// const dateFormatter = new google.visualization.DateFormat(
-//   { pattern: "dd MMM yyyy" });
-// dateFormatter.format(data, 1);
-
-// const formatter = new google.visualization.ColorFormat();
-// formatter.addRange(null, 0, 'red', 'white');
-// formatter.addRange(0, null, 'green', 'white');
-// [1, 2, 3].forEach(col => formatter.format(data, col));
-
 class Table {
   constructor(options) {
     this._columns = [];
@@ -50,19 +41,12 @@ class Table {
     const table = new google.visualization.Table(
       document.getElementById(table_id));
 
-    // const formatter = new google.visualization.ColorFormat();
-    // formatter.addRange(null, 0, 'red', 'white');
-    // formatter.addRange(0, null, 'green', 'white');
-    // [1, 2, 3].forEach(col => formatter.format(data, col));
-    // data.setProperty(0, 0, 'style', 'width:150px');
     this._columns.forEach((column, index) => {
       column?.formatter?.format(data, index);
     });
     data.setProperty(0, 0, 'style', 'width:100px');
     table.draw(data, this._options);
   }
-  // --> something that takes a list of (puts or calls)
-  //     and turns it into a Google Chart Table ready to use.
 }
 
 google.charts.load('current', { 'packages': ['table'] });
@@ -78,10 +62,13 @@ const formatters = {
       pattern: '#,###%'
     });
   },
-  // money: new google.visualization.NumberFormat({
-  // return new google.visualization.ColorFormat()
-  //   fractionDigits: 0
-  // }),
+  date: function () {
+    return new google.visualization.DateFormat(
+      { pattern: "dd MMM yyyy" });
+  }
+  // const formatter = new google.visualization.ColorFormat();
+  // formatter.addRange(null, 0, 'red', 'white');
+  // formatter.addRange(0, null, 'green', 'white');
 };
 
 ;// CONCATENATED MODULE: ./src/options.js
@@ -250,6 +237,10 @@ google.charts.setOnLoadCallback(() => {
 function loadOptions(symbol) {
   fetchByBitOptions(symbol).then(
     ({ puts, calls }) => {
+      if (puts) {
+        const formattedPrice = formatters.dollars().formatValue(puts[0].underlyingPrice);
+        document.getElementById(`${symbol}_price`).textContent = `${formattedPrice}`;
+      }
       drawPutsTable(symbol, puts, `${symbol}_puts_table`);
       drawCallsTable(symbol, calls, `${symbol}_calls_table`);
       drawPutsChart(symbol, puts, `${symbol}_puts_chart`)
@@ -320,18 +311,33 @@ function drawPutsChart(symbol, puts, chart_id) {
       data.addColumn({ role: 'tooltip' });
     }
   });
+
+  // DTE to the smallest strike that is above the spot price.
+  // I.e. if BTC price is $29700, let's plot the $30000 strike too,
+  // instead of going down to $29000 or so.
+  const minStrikeAboveSpot = new Map();
   puts
-    .filter(put => put.strike <= put.underlyingPrice)
+    .filter(put => put.strike > put.underlyingPrice)
+    .forEach(put =>
+      minStrikeAboveSpot.set(
+        put.DTE,
+        Math.min(put.strike, minStrikeAboveSpot.get(put.DTE) || put.strike)
+      )
+    );
+
+  puts
+    .filter(put => put.strike <= (minStrikeAboveSpot.get(put.DTE) || 0))
     .forEach(put => {
       const row = Array(1 + dteToSeries.size * 2);
       row[0] = put.strike;
 
       const series = dteToSeries.get(put.DTE);
       row[1 + series * 2 + 0] = put.maxGainRatio;
-      // TODO: format dates, numbers
       row[1 + series * 2 + 1] =
-        `Strike: $${put.strike}\nExpiration: ${put.expirationDate}\n` +
-        `BreakEven: $${put.breakEven}\nMax gain: ${put.maxGainRatio * 100}%`;
+        `Strike: ${formatters.dollars().formatValue(put.strike)}\n` +
+        `Expiration: ${formatters.date().formatValue(put.expirationDate)}\n` +
+        `BreakEven: ${formatters.dollars().formatValue(put.breakEven)}\n` +
+        `Max gain: ${formatters.percent().formatValue(put.maxGainRatio)}`;
       data.addRows([row]);
     });
 

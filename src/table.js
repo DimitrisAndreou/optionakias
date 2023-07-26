@@ -1,12 +1,3 @@
-// const dateFormatter = new google.visualization.DateFormat(
-//   { pattern: "dd MMM yyyy" });
-// dateFormatter.format(data, 1);
-
-// const formatter = new google.visualization.ColorFormat();
-// formatter.addRange(null, 0, 'red', 'white');
-// formatter.addRange(0, null, 'green', 'white');
-// [1, 2, 3].forEach(col => formatter.format(data, col));
-
 export class Table {
   constructor(options) {
     this._columns = [];
@@ -45,19 +36,12 @@ export class Table {
     const table = new google.visualization.Table(
       document.getElementById(table_id));
 
-    // const formatter = new google.visualization.ColorFormat();
-    // formatter.addRange(null, 0, 'red', 'white');
-    // formatter.addRange(0, null, 'green', 'white');
-    // [1, 2, 3].forEach(col => formatter.format(data, col));
-    // data.setProperty(0, 0, 'style', 'width:150px');
     this._columns.forEach((column, index) => {
       column?.formatter?.format(data, index);
     });
     data.setProperty(0, 0, 'style', 'width:100px');
     table.draw(data, this._options);
   }
-  // --> something that takes a list of (puts or calls)
-  //     and turns it into a Google Chart Table ready to use.
 }
 
 google.charts.load('current', { 'packages': ['table'] });
@@ -73,8 +57,11 @@ export const formatters = {
       pattern: '#,###%'
     });
   },
-  // money: new google.visualization.NumberFormat({
-  // return new google.visualization.ColorFormat()
-  //   fractionDigits: 0
-  // }),
+  date: function () {
+    return new google.visualization.DateFormat(
+      { pattern: "dd MMM yyyy" });
+  }
+  // const formatter = new google.visualization.ColorFormat();
+  // formatter.addRange(null, 0, 'red', 'white');
+  // formatter.addRange(0, null, 'green', 'white');
 };

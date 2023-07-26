@@ -26,3 +26,16 @@
   justify-content: center;
   border: 1px solid #ccc;
 }
+
+.table_caption {
+  font-weight: bold;
+  text-align: center;
+}
+
+.price {
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+  color: rgb(0, 0, 195);
+  padding: 10px;
+}
