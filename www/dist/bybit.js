@@ -241,7 +241,7 @@ function compareOptionsFn(a, b) {
 
 
 
-google.charts.load('current', { 'packages': ['table'] });
+google.charts.load('current', { 'packages': ['corechart', 'table'] });
 google.charts.setOnLoadCallback(() => {
   loadOptions("BTC");
   loadOptions("ETH");
@@ -250,8 +250,9 @@ google.charts.setOnLoadCallback(() => {
 function loadOptions(symbol) {
   fetchByBitOptions(symbol).then(
     ({ puts, calls }) => {
-      drawPutsTable(symbol, puts, symbol + "_puts_table");
-      drawCallsTable(symbol, calls, symbol + "_calls_table");
+      drawPutsTable(symbol, puts, `${symbol}_puts_table`);
+      drawCallsTable(symbol, calls, `${symbol}_calls_table`);
+      drawPutsChart(symbol, puts, `${symbol}_puts_chart`)
     },
     error => {
       console.error(error.stack);
@@ -278,6 +279,46 @@ function drawPutsTable(symbol, puts, table_id) {
     .defineColumn("APR (%)", put => put.annualizedMaxGainRatio, "number", formatters.percent())
     ;
   putsTable.format(puts, table_id);
+}
+
+function drawPutsChart(symbol, puts, chart_id) {
+  const options = {
+    title: `All ${symbol} Puts (Each line is an expiration date, N days from today)`,
+    hAxis: { title: 'Break Even', format: '$#,###', direction: -1 },
+    vAxis: { title: 'Max Gain %', format: '#,###%' },
+    legend: { position: 'top' },
+    curveType: 'function',
+    pointSize: 5,
+  };
+
+  const data = new google.visualization.DataTable();
+  data.addColumn({ type: 'number', pattern: '$#,###' });
+
+  const dteToSeries = new Map();
+  puts.forEach(put => {
+    if (!dteToSeries.has(put.DTE)) {
+      dteToSeries.set(put.DTE, dteToSeries.size);
+      data.addColumn({ type: 'number', label: `${put.DTE}`, pattern: '$#,###' });
+      data.addColumn({ role: 'tooltip' });
+    }
+  });
+  puts
+    .filter(put => put.strike <= put.underlyingPrice)
+    .forEach(put => {
+      const row = Array(1 + dteToSeries.size * 2);
+      row[0] = put.breakEven;
+
+      const series = dteToSeries.get(put.DTE);
+      row[1 + series * 2 + 0] = put.maxGainRatio;
+      // TODO: format dates, numbers
+      row[1 + series * 2 + 1] =
+        `Strike: $${put.strike}\nExpiration: ${put.expirationDate}\n` +
+        `BreakEven: $${put.breakEven}\nMax gain: ${put.maxGainRatio * 100}%`;
+      data.addRows([row]);
+    });
+
+  const chart = new google.visualization.LineChart(document.getElementById(chart_id));
+  chart.draw(data, options);
 }
 
 function drawCallsTable(symbol, calls, table_id) {
