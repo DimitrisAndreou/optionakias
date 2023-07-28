@@ -19,8 +19,8 @@
       </tr>
       <tr>
         <td class="table_caption">SPOT PRICE</td>
-        <td id="BTC_price" class="price"></td>
-        <td id="ETH_price" class="price"></td>
+        <td id="BTC_price" class="price">$XX,XXX</td>
+        <td id="ETH_price" class="price">$X,XXX</td>
       </tr>
       <tr>
         <td class="table_caption">PUTS</td>
@@ -38,6 +38,11 @@
         <td class="table_caption"><a href="#btc_calls">Table</a></td>
         <td class="table_caption"><a href="#eth_calls">Table</a></td>
       </tr>
+      <tr>
+        <td class="table_caption">OVER/UNDER Bets</td>
+        <td class="table_caption"><a href="#btc_spreads">Table</a></td>
+        <td class="table_caption"><a href="#eth_spreads">Table</a></td>
+      </tr>
     </table>
   </center>
   <div class="container">
@@ -48,6 +53,10 @@
     <div>
       <h1 id="btc_puts" class="centered">BTC Puts</h1>
       <div id="BTC_puts_table" class="table"></div>
+    </div>
+    <div>
+      <h1 id="btc_spreads" class="centered">BTC "Οver/Under" Bets (debit/credit spreads)</h1>
+      <div id="BTC_spreads_table" class="table"></div>
     </div>
 
     <div>
@@ -67,6 +76,10 @@
     <div>
       <h1 id="eth_calls" class="centered">ETH Calls</h1>
       <div id="ETH_calls_table" class="table"></div>
+    </div>
+    <div>
+      <h1 id="eth_spreads" class="centered">ETH "Οver/Under" Bets (debit/credit spreads)</h1>
+      <div id="ETH_spreads_table" class="table"></div>
     </div>
   </div>
 </body>

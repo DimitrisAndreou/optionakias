@@ -210,20 +210,6 @@ function parseMonth(monthStr) {
   throw new Error("Unexpected month: [" + monthStr + "]");
 }
 
-function compareOptionsFn(a, b) {
-  if (a.DTE !== b.DTE) {
-    return b.DTE - a.DTE;
-  }
-  if (a.strike !== b.strike) {
-    if (a.isPut) {
-      return a.strike - b.strike;
-    } else {
-      return b.strike - a.strike;
-    }
-  }
-  return -1;
-}
-
 ;// CONCATENATED MODULE: ./src/bybit.js
 
 
@@ -243,7 +229,8 @@ function loadOptions(symbol) {
       }
       drawPutsTable(symbol, puts, `${symbol}_puts_table`);
       drawCallsTable(symbol, calls, `${symbol}_calls_table`);
-      drawPutsChart(symbol, puts, `${symbol}_puts_chart`)
+      drawPutsChart(symbol, puts, `${symbol}_puts_chart`);
+      drawSpreads(symbol, puts, calls, `${symbol}_spreads_table`);
     },
     error => {
       console.error(error.stack);
@@ -345,6 +332,76 @@ function drawPutsChart(symbol, puts, chart_id) {
   chart.draw(data, options);
 }
 
+function drawSpreads(symbol, puts, calls, table_id) {
+  const spotPrice = puts[0].underlyingPrice;
+  // For each DTE
+  // take consecutive strikes
+  // when lower strike is below spot, use puts, otherwise switch to calls
+  // Or just use puts for now, for simplicity.
+  const putsByDTEandStrike = new Map();
+  const allDTEs = new Set();
+  puts.forEach(put => {
+    const DTE = put.DTE;
+    allDTEs.add(DTE);
+    if (!putsByDTEandStrike.has(DTE)) {
+      putsByDTEandStrike.set(DTE, new Map());
+    }
+    putsByDTEandStrike.get(DTE).set(put.strike, put);
+  });
+
+  const dteToBets = new Map();
+  const allStrikes = new Set();
+  putsByDTEandStrike.forEach((putByStrike, DTE) => {
+    const sortedStrikes = [];
+    putByStrike.forEach((put) => {
+      sortedStrikes.push(put.strike);
+    });
+    sortedStrikes.sort(compareNumbers());
+
+    const strikePairs = sortedStrikes.map((elem, index, array) => [elem, array[index + 1]]);
+    // Removeσ the last pair, which is: [lastElem, undefined].
+    strikePairs.pop();
+
+    const betsUnder = new Map();
+    const betsOver = new Map();
+
+    strikePairs.forEach(([lowStrike, highStrike]) => {
+      const lowPut = putByStrike.get(lowStrike);
+      const highPut = putByStrike.get(highStrike);
+      const width = highStrike - lowStrike;
+      const cost = highPut.premium - lowPut.premium;
+      // breakeven (for both sides) is: highStrike - cost.
+      // Yields for "under" and "over" bets:
+      betsUnder.set(lowStrike, width / cost);
+      betsOver.set(highStrike, width / (width - cost));
+      allStrikes.add(lowStrike);
+      allStrikes.add(highStrike);
+    });
+    dteToBets.set(DTE, {
+      betsUnder,
+      betsOver
+    });
+  });
+
+  console.log(dteToBets);
+  // dteToBets.flatMap()
+
+  // Find all unique strikes, sort them.
+  const betsTable = new Table({
+    frozenColumns: 1,
+    title: `All ${symbol} "Over" and "Under" bets (spreads). Each bet corresponds to a pair of puts; one bought and one`,
+  }).defineColumn(`${symbol} price`, strike => strike, "number", formatters.dollars());
+  [...allDTEs].sort(compareNumbers()).forEach((DTE) => {
+    betsTable.defineColumn(`⬇️${DTE}`,
+      strike => dteToBets.get(DTE)?.betsUnder?.get(strike),
+      "number", formatters.percent());
+    betsTable.defineColumn(`${DTE}⬆️`,
+      strike => dteToBets.get(DTE)?.betsOver?.get(strike),
+      "number", formatters.percent());
+  });
+  betsTable.format([...allStrikes].sort(compareNumbers()), table_id);
+}
+
 function cacheKey(ticker) {
   return ticker;
 }
@@ -396,5 +453,22 @@ async function fetchByBitOptions(ticker = 'BTC') {
   }
 }
 
+function compareOptionsFn(a, b) {
+  if (a.DTE !== b.DTE) {
+    return b.DTE - a.DTE;
+  }
+  if (a.strike !== b.strike) {
+    if (a.isPut) {
+      return a.strike - b.strike;
+    } else {
+      return b.strike - a.strike;
+    }
+  }
+  return -1;
+}
+
+function compareNumbers() {
+  return (a, b) => a - b;
+}
 /******/ })()
 ;

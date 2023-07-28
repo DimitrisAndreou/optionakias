@@ -135,17 +135,3 @@ function parseMonth(monthStr) {
   }
   throw new Error("Unexpected month: [" + monthStr + "]");
 }
-
-export function compareOptionsFn(a, b) {
-  if (a.DTE !== b.DTE) {
-    return b.DTE - a.DTE;
-  }
-  if (a.strike !== b.strike) {
-    if (a.isPut) {
-      return a.strike - b.strike;
-    } else {
-      return b.strike - a.strike;
-    }
-  }
-  return -1;
-}
