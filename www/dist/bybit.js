@@ -372,8 +372,8 @@ function drawSpreads(symbol, puts, calls, table_id) {
       const cost = highPut.premium - lowPut.premium;
       // breakeven (for both sides) is: highStrike - cost.
       // Yields for "under" and "over" bets:
-      betsUnder.set(lowStrike, width / cost);
-      betsOver.set(highStrike, width / (width - cost));
+      betsUnder.set(lowStrike, width / cost - 1);
+      betsOver.set(highStrike, width / (width - cost) - 1);
       allStrikes.add(lowStrike);
       allStrikes.add(highStrike);
     });
