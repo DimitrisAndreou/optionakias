@@ -42,7 +42,13 @@ class Table {
       document.getElementById(table_id));
 
     this._columns.forEach((column, index) => {
-      column?.formatter?.format(data, index);
+      const formatterOrArray = column?.formatter;
+      const apply = (formatter) => { if (formatter) { formatter.format(data, index); } };
+      if (Array.isArray(formatterOrArray)) {
+        formatterOrArray.forEach(apply);
+      } else {
+        apply(formatterOrArray);
+      }
     });
     data.setProperty(0, 0, 'style', 'width:100px');
     table.draw(data, this._options);
@@ -52,23 +58,23 @@ class Table {
 google.charts.load('current', { 'packages': ['table'] });
 
 const formatters = {
-  dollars: function () {
-    return new google.visualization.NumberFormat({
-      pattern: '$#,###'
-    });
-  },
-  percent: function () {
-    return new google.visualization.NumberFormat({
-      pattern: '#,###%'
-    });
-  },
-  date: function () {
-    return new google.visualization.DateFormat(
-      { pattern: "dd MMM yyyy" });
+  dollars: () => new google.visualization.NumberFormat({
+    pattern: '$#,###'
+  }),
+  percent: () => new google.visualization.NumberFormat({
+    pattern: '#,###%'
+  }),
+  date: () => new google.visualization.DateFormat({
+    pattern: "dd MMM yyyy"
+  }),
+  positiveYields: () => {
+    const formatter = new google.visualization.ColorFormat();
+    formatter.addGradientRange(0.0, 1.0, "#000000", "#32CD32", "#00FF00");
+    formatter.addGradientRange(1.0, 2.0, "#000000", "#00FF00", "#00FFFF");
+    formatter.addGradientRange(2.0, 10.0, "#000000", "#00FFFF", "#FFD700");
+    formatter.addGradientRange(10.0, null, "#000000", "#00FFFF", "#FF69B4");
+    return formatter;
   }
-  // const formatter = new google.visualization.ColorFormat();
-  // formatter.addRange(null, 0, 'red', 'white');
-  // formatter.addRange(0, null, 'green', 'white');
 };
 
 ;// CONCATENATED MODULE: ./src/options.js
@@ -278,10 +284,22 @@ function drawCallsTable(symbol, calls, table_id) {
 }
 
 function drawPutsChart(symbol, puts, chart_id) {
+  const boldText = {
+    fontSize: 18,
+    bold: true,
+  };
   const options = {
     title: `All ${symbol} Puts (Each line is an expiration date, N days from today)`,
-    hAxis: { title: `$ Strike (the price you promise to buy ${symbol} at)`, format: '$#,###', direction: -1 },
-    vAxis: { title: 'Max Gain %', format: '#,###%' },
+    titleTextStyle: {
+      fontSize: 24,
+      bold: true,
+    },
+    hAxis: {
+      title: `$ Strike (the price you promise to buy ${symbol} at)`, format: '$#,###',
+      direction: -1,
+      titleTextStyle: boldText,
+    },
+    vAxis: { title: 'Max Gain %', format: '#,###%', titleTextStyle: boldText, },
     legend: { position: 'top' },
     curveType: 'function',
     pointSize: 5,
@@ -365,13 +383,18 @@ function drawSpreads(symbol, puts, calls, table_id) {
     const betsUnder = new Map();
     const betsOver = new Map();
 
+    const lowLiquidity = (option) => !option.bidSize || !option.askSize;
+    const highSlippage = (option) => option.bidPrice < (option.askPrice * 0.9);
+
     strikePairs.forEach(([lowStrike, highStrike]) => {
       const lowPut = putByStrike.get(lowStrike);
       const highPut = putByStrike.get(highStrike);
       // Ignore puts with zero liquidity.
-      if (!lowPut.bidSize || !lowPut.askSize || !highPut.bidSize || !highPut.askSize) {
+      const options = [lowPut, highPut];
+      if (options.some(lowLiquidity) || options.some(highSlippage)) {
         return;
       }
+
       const width = highStrike - lowStrike;
       const cost = highPut.premium - lowPut.premium;
       // breakeven (for both sides) is: highStrike - cost.
@@ -394,10 +417,10 @@ function drawSpreads(symbol, puts, calls, table_id) {
   [...allDTEs].sort(compareNumbers(false)).forEach((DTE) => {
     betsTable.defineColumn(`⬇️${DTE}`,
       strike => dteToBets.get(DTE)?.betsUnder?.get(strike),
-      "number", formatters.percent());
+      "number", [formatters.percent(), formatters.positiveYields()]);
     betsTable.defineColumn(`${DTE}⬆️`,
       strike => dteToBets.get(DTE)?.betsOver?.get(strike),
-      "number", formatters.percent());
+      "number", [formatters.percent(), formatters.positiveYields()]);
   });
   betsTable.format([...allStrikes].sort(compareNumbers()), table_id);
 }

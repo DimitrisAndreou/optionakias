@@ -65,10 +65,22 @@ function drawCallsTable(symbol, calls, table_id) {
 }
 
 function drawPutsChart(symbol, puts, chart_id) {
+  const boldText = {
+    fontSize: 18,
+    bold: true,
+  };
   const options = {
     title: `All ${symbol} Puts (Each line is an expiration date, N days from today)`,
-    hAxis: { title: `$ Strike (the price you promise to buy ${symbol} at)`, format: '$#,###', direction: -1 },
-    vAxis: { title: 'Max Gain %', format: '#,###%' },
+    titleTextStyle: {
+      fontSize: 24,
+      bold: true,
+    },
+    hAxis: {
+      title: `$ Strike (the price you promise to buy ${symbol} at)`, format: '$#,###',
+      direction: -1,
+      titleTextStyle: boldText,
+    },
+    vAxis: { title: 'Max Gain %', format: '#,###%', titleTextStyle: boldText, },
     legend: { position: 'top' },
     curveType: 'function',
     pointSize: 5,
@@ -152,13 +164,18 @@ function drawSpreads(symbol, puts, calls, table_id) {
     const betsUnder = new Map();
     const betsOver = new Map();
 
+    const lowLiquidity = (option) => !option.bidSize || !option.askSize;
+    const highSlippage = (option) => option.bidPrice < (option.askPrice * 0.9);
+
     strikePairs.forEach(([lowStrike, highStrike]) => {
       const lowPut = putByStrike.get(lowStrike);
       const highPut = putByStrike.get(highStrike);
       // Ignore puts with zero liquidity.
-      if (!lowPut.bidSize || !lowPut.askSize || !highPut.bidSize || !highPut.askSize) {
+      const options = [lowPut, highPut];
+      if (options.some(lowLiquidity) || options.some(highSlippage)) {
         return;
       }
+
       const width = highStrike - lowStrike;
       const cost = highPut.premium - lowPut.premium;
       // breakeven (for both sides) is: highStrike - cost.
@@ -181,10 +198,10 @@ function drawSpreads(symbol, puts, calls, table_id) {
   [...allDTEs].sort(compareNumbers(false)).forEach((DTE) => {
     betsTable.defineColumn(`⬇️${DTE}`,
       strike => dteToBets.get(DTE)?.betsUnder?.get(strike),
-      "number", formatters.percent());
+      "number", [formatters.percent(), formatters.positiveYields()]);
     betsTable.defineColumn(`${DTE}⬆️`,
       strike => dteToBets.get(DTE)?.betsOver?.get(strike),
-      "number", formatters.percent());
+      "number", [formatters.percent(), formatters.positiveYields()]);
   });
   betsTable.format([...allStrikes].sort(compareNumbers()), table_id);
 }

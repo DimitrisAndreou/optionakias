@@ -37,7 +37,13 @@ export class Table {
       document.getElementById(table_id));
 
     this._columns.forEach((column, index) => {
-      column?.formatter?.format(data, index);
+      const formatterOrArray = column?.formatter;
+      const apply = (formatter) => { if (formatter) { formatter.format(data, index); } };
+      if (Array.isArray(formatterOrArray)) {
+        formatterOrArray.forEach(apply);
+      } else {
+        apply(formatterOrArray);
+      }
     });
     data.setProperty(0, 0, 'style', 'width:100px');
     table.draw(data, this._options);
@@ -47,21 +53,21 @@ export class Table {
 google.charts.load('current', { 'packages': ['table'] });
 
 export const formatters = {
-  dollars: function () {
-    return new google.visualization.NumberFormat({
-      pattern: '$#,###'
-    });
-  },
-  percent: function () {
-    return new google.visualization.NumberFormat({
-      pattern: '#,###%'
-    });
-  },
-  date: function () {
-    return new google.visualization.DateFormat(
-      { pattern: "dd MMM yyyy" });
+  dollars: () => new google.visualization.NumberFormat({
+    pattern: '$#,###'
+  }),
+  percent: () => new google.visualization.NumberFormat({
+    pattern: '#,###%'
+  }),
+  date: () => new google.visualization.DateFormat({
+    pattern: "dd MMM yyyy"
+  }),
+  positiveYields: () => {
+    const formatter = new google.visualization.ColorFormat();
+    formatter.addGradientRange(0.0, 1.0, "#000000", "#32CD32", "#00FF00");
+    formatter.addGradientRange(1.0, 2.0, "#000000", "#00FF00", "#00FFFF");
+    formatter.addGradientRange(2.0, 10.0, "#000000", "#00FFFF", "#FFD700");
+    formatter.addGradientRange(10.0, null, "#000000", "#00FFFF", "#FF69B4");
+    return formatter;
   }
-  // const formatter = new google.visualization.ColorFormat();
-  // formatter.addRange(null, 0, 'red', 'white');
-  // formatter.addRange(0, null, 'green', 'white');
 };
