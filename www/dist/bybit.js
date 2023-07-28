@@ -368,6 +368,10 @@ function drawSpreads(symbol, puts, calls, table_id) {
     strikePairs.forEach(([lowStrike, highStrike]) => {
       const lowPut = putByStrike.get(lowStrike);
       const highPut = putByStrike.get(highStrike);
+      // Ignore puts with zero liquidity.
+      if (!lowPut.bidSize || !lowPut.askSize || !highPut.bidSize || !highPut.askSize) {
+        return;
+      }
       const width = highStrike - lowStrike;
       const cost = highPut.premium - lowPut.premium;
       // breakeven (for both sides) is: highStrike - cost.
