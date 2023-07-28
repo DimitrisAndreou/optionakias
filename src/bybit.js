@@ -159,8 +159,8 @@ function drawSpreads(symbol, puts, calls, table_id) {
       const cost = highPut.premium - lowPut.premium;
       // breakeven (for both sides) is: highStrike - cost.
       // Yields for "under" and "over" bets:
-      betsUnder.set(lowStrike, width / cost);
-      betsOver.set(highStrike, width / (width - cost));
+      betsUnder.set(lowStrike, width / cost - 1);
+      betsOver.set(highStrike, width / (width - cost) - 1);
       allStrikes.add(lowStrike);
       allStrikes.add(highStrike);
     });
@@ -170,15 +170,11 @@ function drawSpreads(symbol, puts, calls, table_id) {
     });
   });
 
-  console.log(dteToBets);
-  // dteToBets.flatMap()
-
-  // Find all unique strikes, sort them.
   const betsTable = new Table({
     frozenColumns: 1,
     title: `All ${symbol} "Over" and "Under" bets (spreads). Each bet corresponds to a pair of puts; one bought and one`,
   }).defineColumn(`${symbol} price`, strike => strike, "number", formatters.dollars());
-  [...allDTEs].sort(compareNumbers()).forEach((DTE) => {
+  [...allDTEs].sort(compareNumbers(false)).forEach((DTE) => {
     betsTable.defineColumn(`⬇️${DTE}`,
       strike => dteToBets.get(DTE)?.betsUnder?.get(strike),
       "number", formatters.percent());
@@ -254,6 +250,6 @@ function compareOptionsFn(a, b) {
   return -1;
 }
 
-function compareNumbers() {
-  return (a, b) => a - b;
+function compareNumbers(asc = true) {
+  return (a, b) => asc ? (a - b) : (b - a);
 }
