@@ -191,11 +191,19 @@ function drawSpreads(symbol, puts, calls, table_id) {
     });
   });
 
+  const allStrikesArray = [...allStrikes];
   const betsTable = new Table({
     frozenColumns: 1,
     title: `All ${symbol} "Over" and "Under" bets (spreads). Each bet corresponds to a pair of puts; one bought and one`,
   }).defineColumn(`${symbol} price`, strike => strike, "number", formatters.dollars());
   [...allDTEs].sort(compareNumbers(false)).forEach((DTE) => {
+    if (!allStrikesArray.some((strike) =>
+      !!dteToBets.get(DTE)?.betsUnder?.get(strike) ||
+      !!dteToBets.get(DTE)?.betsOver?.get(strike))) {
+      // Ignore empty columns.
+      return;
+    }
+
     betsTable.defineColumn(`⬇️${DTE}`,
       strike => dteToBets.get(DTE)?.betsUnder?.get(strike),
       "number", [formatters.percent(), formatters.positiveYields()]);
@@ -203,7 +211,7 @@ function drawSpreads(symbol, puts, calls, table_id) {
       strike => dteToBets.get(DTE)?.betsOver?.get(strike),
       "number", [formatters.percent(), formatters.positiveYields()]);
   });
-  betsTable.format([...allStrikes].sort(compareNumbers()), table_id);
+  betsTable.format(allStrikesArray.sort(compareNumbers()), table_id);
 }
 
 function cacheKey(ticker) {
