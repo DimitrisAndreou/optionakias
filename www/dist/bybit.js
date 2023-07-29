@@ -399,24 +399,29 @@ function drawSpreads(symbol, puts, calls, table_id) {
     const betsUnder = new Map();
     const betsOver = new Map();
 
-    const lowLiquidity = (option) => !option.bidSize || !option.askSize;
-    const highSlippage = (option) => option.bidPrice < (option.askPrice * 0.66);
-
     strikePairs.forEach(([lowStrike, highStrike]) => {
       const lowPut = putByStrike.get(lowStrike);
       const highPut = putByStrike.get(highStrike);
       // Ignore puts with zero liquidity.
-      const options = [lowPut, highPut];
-      if (options.some(lowLiquidity) || options.some(highSlippage)) {
+      if ([lowPut, highPut].some((option) => !option.bidSize || !option.askSize)) {
         return;
       }
 
-      const width = highStrike - lowStrike;
-      const cost = highPut.premium - lowPut.premium;
-      // breakeven (for both sides) is: highStrike - cost.
-      // Yields for "under" and "over" bets:
-      betsUnder.set(lowStrike, width / cost - 1);
-      betsOver.set(highStrike, width / (width - cost) - 1);
+      const spread = {
+        width: highStrike - lowStrike,
+        // Notice that always spreadBid < spreadAsk.
+        bid: highPut.bidPrice - lowPut.askPrice,
+        ask: highPut.askPrice - lowPut.bidPrice,
+      }
+      function registerBetIfYield(betsByStrike, strike, betYield) {
+        if (betYield > 0.0) {
+          betsByStrike.set(strike, betYield);
+        }
+      }
+      // For "under", one buys the spread
+      registerBetIfYield(betsUnder, lowStrike, spread.width / spread.ask - 1);
+      // For "over", one sells the spread
+      registerBetIfYield(betsOver, highStrike, spread.width / (spread.width - spread.bid) - 1);
       allStrikes.add(lowStrike);
       allStrikes.add(highStrike);
     });
