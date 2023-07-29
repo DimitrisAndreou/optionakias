@@ -36,12 +36,12 @@ function drawPutsTable(symbol, puts, table_id) {
     .defineColumn(`${symbol} PUT<br>STRIKE`, put => put.strike, "number", formatters.dollars())
     .defineColumn("PREMIUM ($)<br>(=MAX GAIN)", put => put.markPrice, "number", formatters.dollars())
     .defineColumn("BREAKEVEN ($)<br>(=MAX LOSS)", put => put.breakEven, "number", formatters.dollars())
-    .defineColumn("BREAKEVEN (%)", put => put.breakEvenAsChange, "number", formatters.percent())
-    .defineColumn("MAX GAIN (%)", put => put.maxGainRatio, "number", formatters.percent())
+    .defineColumn("BREAKEVEN (%)", put => put.breakEvenAsChange, "number", formatters.percent(), formatters.percentSmallerBetter())
+    .defineColumn("MAX GAIN (%)", put => put.maxGainRatio, "number", formatters.percent(), formatters.maxGainPercent())
     .defineColumn("MAX GAIN<br>WHEN " + symbol + "<br>PERFORMS BETTER<br>THAN (%)",
-      put => put.maxGainAsChange, "number", formatters.percent())
+      put => put.maxGainAsChange, "number", formatters.percent(), formatters.percentSmallerBetter())
     .defineColumn("BREAKEVEN<br>VS HODLER", put => put.breakEvenVsHodler, "number", formatters.dollars())
-    .defineColumn("APR (%)", put => put.annualizedMaxGainRatio, "number", formatters.percent())
+    .defineColumn("APR (%)", put => put.annualizedMaxGainRatio, "number", formatters.percent(), formatters.percentBiggerBetter())
     ;
   putsTable.format(puts, table_id);
 }
@@ -57,7 +57,7 @@ function drawCallsTable(symbol, calls, table_id) {
     .defineColumn("PREMIUM (=MAX GAIN) ($)", call => call.markPrice, "number", formatters.dollars())
     .defineColumn("PREMIUM (%)", call => call.premiumAsPercent, "number", formatters.percent())
     .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
-    .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent())
+    .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent(), formatters.percentBiggerBetter())
     // ["MAX GAIN WHEN " + call.option.symbol + " PERFORMS WORSE THAN (%)"]: call.decorations.maxGainAsChange,
     // "BREAKEVEN VS SPOT SHORT": call.decorations.breakEvenVsShorter,
     ;
@@ -165,7 +165,7 @@ function drawSpreads(symbol, puts, calls, table_id) {
     const betsOver = new Map();
 
     const lowLiquidity = (option) => !option.bidSize || !option.askSize;
-    const highSlippage = (option) => option.bidPrice < (option.askPrice * 0.9);
+    const highSlippage = (option) => option.bidPrice < (option.askPrice * 0.66);
 
     strikePairs.forEach(([lowStrike, highStrike]) => {
       const lowPut = putByStrike.get(lowStrike);
@@ -206,10 +206,10 @@ function drawSpreads(symbol, puts, calls, table_id) {
 
     betsTable.defineColumn(`⬇️${DTE}`,
       strike => dteToBets.get(DTE)?.betsUnder?.get(strike),
-      "number", [formatters.percent(), formatters.positiveYields()]);
+      "number", formatters.percent(), formatters.positiveYields());
     betsTable.defineColumn(`${DTE}⬆️`,
       strike => dteToBets.get(DTE)?.betsOver?.get(strike),
-      "number", [formatters.percent(), formatters.positiveYields()]);
+      "number", formatters.percent(), formatters.positiveYields());
   });
   betsTable.format(allStrikesArray.sort(compareNumbers()), table_id);
 }

@@ -21,12 +21,12 @@ class Table {
          be one of the following:
          'string', 'number', 'boolean', 'date', 'datetime', and 'timeofday'.
   */
-  defineColumn(header, valueFn, type, formatter) {
+  defineColumn(header, valueFn, type, ...columnFormatters) {
     this._columns.push({
       header,
       valueFn,
       type,
-      formatter
+      columnFormatters
     });
     return this;
   }
@@ -41,15 +41,9 @@ class Table {
     const table = new google.visualization.Table(
       document.getElementById(table_id));
 
-    this._columns.forEach((column, index) => {
-      const formatterOrArray = column?.formatter;
-      const apply = (formatter) => { if (formatter) { formatter.format(data, index); } };
-      if (Array.isArray(formatterOrArray)) {
-        formatterOrArray.forEach(apply);
-      } else {
-        apply(formatterOrArray);
-      }
-    });
+    this._columns.forEach((column, index) =>
+      column.columnFormatters.forEach((formatter) => formatter.format(data, index))
+    );
     data.setProperty(0, 0, 'style', 'width:100px');
     table.draw(data, this._options);
   }
@@ -74,7 +68,29 @@ const formatters = {
     formatter.addGradientRange(2.0, 10.0, "#000000", "#00FFFF", "#FFD700");
     formatter.addGradientRange(10.0, null, "#000000", "#00FFFF", "#FF69B4");
     return formatter;
-  }
+  },
+  maxGainPercent: () => {
+    const formatter = new google.visualization.ColorFormat();
+    formatter.addGradientRange(0.0, 1.0, "#000000", "#FFFFFF", "#00FF00");
+    formatter.addGradientRange(1.0, null, "#000000", "#00FF00", "#00FF00");
+    return formatter;
+  },
+  percentSmallerBetter: () => {
+    const formatter = new google.visualization.ColorFormat();
+    formatter.addGradientRange(null, -1, "#000000", "#00FF00", "#00FF00");
+    formatter.addGradientRange(-1.0, 0., "#000000", "#00FF00", "#FFFFFF");
+    formatter.addGradientRange(0.0, 1.0, "#000000", "#FFFFFF", "#FF0000");
+    formatter.addGradientRange(1., null, "#000000", "#FF0000", "#FF0000");
+    return formatter;
+  },
+  percentBiggerBetter: () => {
+    const formatter = new google.visualization.ColorFormat();
+    formatter.addGradientRange(null, -1, "#000000", "#FF0000", "#FF0000");
+    formatter.addGradientRange(-1.0, 0., "#000000", "#FF0000", "#FFFFFF");
+    formatter.addGradientRange(0.0, 1.0, "#000000", "#FFFFFF", "#00FF00");
+    formatter.addGradientRange(1., null, "#000000", "#00FF00", "#00FF00");
+    return formatter;
+  },
 };
 
 ;// CONCATENATED MODULE: ./src/options.js
@@ -255,12 +271,12 @@ function drawPutsTable(symbol, puts, table_id) {
     .defineColumn(`${symbol} PUT<br>STRIKE`, put => put.strike, "number", formatters.dollars())
     .defineColumn("PREMIUM ($)<br>(=MAX GAIN)", put => put.markPrice, "number", formatters.dollars())
     .defineColumn("BREAKEVEN ($)<br>(=MAX LOSS)", put => put.breakEven, "number", formatters.dollars())
-    .defineColumn("BREAKEVEN (%)", put => put.breakEvenAsChange, "number", formatters.percent())
-    .defineColumn("MAX GAIN (%)", put => put.maxGainRatio, "number", formatters.percent())
+    .defineColumn("BREAKEVEN (%)", put => put.breakEvenAsChange, "number", formatters.percent(), formatters.percentSmallerBetter())
+    .defineColumn("MAX GAIN (%)", put => put.maxGainRatio, "number", formatters.percent(), formatters.maxGainPercent())
     .defineColumn("MAX GAIN<br>WHEN " + symbol + "<br>PERFORMS BETTER<br>THAN (%)",
-      put => put.maxGainAsChange, "number", formatters.percent())
+      put => put.maxGainAsChange, "number", formatters.percent(), formatters.percentSmallerBetter())
     .defineColumn("BREAKEVEN<br>VS HODLER", put => put.breakEvenVsHodler, "number", formatters.dollars())
-    .defineColumn("APR (%)", put => put.annualizedMaxGainRatio, "number", formatters.percent())
+    .defineColumn("APR (%)", put => put.annualizedMaxGainRatio, "number", formatters.percent(), formatters.percentBiggerBetter())
     ;
   putsTable.format(puts, table_id);
 }
@@ -276,7 +292,7 @@ function drawCallsTable(symbol, calls, table_id) {
     .defineColumn("PREMIUM (=MAX GAIN) ($)", call => call.markPrice, "number", formatters.dollars())
     .defineColumn("PREMIUM (%)", call => call.premiumAsPercent, "number", formatters.percent())
     .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
-    .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent())
+    .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent(), formatters.percentBiggerBetter())
     // ["MAX GAIN WHEN " + call.option.symbol + " PERFORMS WORSE THAN (%)"]: call.decorations.maxGainAsChange,
     // "BREAKEVEN VS SPOT SHORT": call.decorations.breakEvenVsShorter,
     ;
@@ -384,7 +400,7 @@ function drawSpreads(symbol, puts, calls, table_id) {
     const betsOver = new Map();
 
     const lowLiquidity = (option) => !option.bidSize || !option.askSize;
-    const highSlippage = (option) => option.bidPrice < (option.askPrice * 0.9);
+    const highSlippage = (option) => option.bidPrice < (option.askPrice * 0.66);
 
     strikePairs.forEach(([lowStrike, highStrike]) => {
       const lowPut = putByStrike.get(lowStrike);
@@ -425,10 +441,10 @@ function drawSpreads(symbol, puts, calls, table_id) {
 
     betsTable.defineColumn(`⬇️${DTE}`,
       strike => dteToBets.get(DTE)?.betsUnder?.get(strike),
-      "number", [formatters.percent(), formatters.positiveYields()]);
+      "number", formatters.percent(), formatters.positiveYields());
     betsTable.defineColumn(`${DTE}⬆️`,
       strike => dteToBets.get(DTE)?.betsOver?.get(strike),
-      "number", [formatters.percent(), formatters.positiveYields()]);
+      "number", formatters.percent(), formatters.positiveYields());
   });
   betsTable.format(allStrikesArray.sort(compareNumbers()), table_id);
 }

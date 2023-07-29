@@ -16,12 +16,12 @@ export class Table {
          be one of the following:
          'string', 'number', 'boolean', 'date', 'datetime', and 'timeofday'.
   */
-  defineColumn(header, valueFn, type, formatter) {
+  defineColumn(header, valueFn, type, ...columnFormatters) {
     this._columns.push({
       header,
       valueFn,
       type,
-      formatter
+      columnFormatters
     });
     return this;
   }
@@ -36,15 +36,9 @@ export class Table {
     const table = new google.visualization.Table(
       document.getElementById(table_id));
 
-    this._columns.forEach((column, index) => {
-      const formatterOrArray = column?.formatter;
-      const apply = (formatter) => { if (formatter) { formatter.format(data, index); } };
-      if (Array.isArray(formatterOrArray)) {
-        formatterOrArray.forEach(apply);
-      } else {
-        apply(formatterOrArray);
-      }
-    });
+    this._columns.forEach((column, index) =>
+      column.columnFormatters.forEach((formatter) => formatter.format(data, index))
+    );
     data.setProperty(0, 0, 'style', 'width:100px');
     table.draw(data, this._options);
   }
@@ -69,5 +63,27 @@ export const formatters = {
     formatter.addGradientRange(2.0, 10.0, "#000000", "#00FFFF", "#FFD700");
     formatter.addGradientRange(10.0, null, "#000000", "#00FFFF", "#FF69B4");
     return formatter;
-  }
+  },
+  maxGainPercent: () => {
+    const formatter = new google.visualization.ColorFormat();
+    formatter.addGradientRange(0.0, 1.0, "#000000", "#FFFFFF", "#00FF00");
+    formatter.addGradientRange(1.0, null, "#000000", "#00FF00", "#00FF00");
+    return formatter;
+  },
+  percentSmallerBetter: () => {
+    const formatter = new google.visualization.ColorFormat();
+    formatter.addGradientRange(null, -1, "#000000", "#00FF00", "#00FF00");
+    formatter.addGradientRange(-1.0, 0., "#000000", "#00FF00", "#FFFFFF");
+    formatter.addGradientRange(0.0, 1.0, "#000000", "#FFFFFF", "#FF0000");
+    formatter.addGradientRange(1., null, "#000000", "#FF0000", "#FF0000");
+    return formatter;
+  },
+  percentBiggerBetter: () => {
+    const formatter = new google.visualization.ColorFormat();
+    formatter.addGradientRange(null, -1, "#000000", "#FF0000", "#FF0000");
+    formatter.addGradientRange(-1.0, 0., "#000000", "#FF0000", "#FFFFFF");
+    formatter.addGradientRange(0.0, 1.0, "#000000", "#FFFFFF", "#00FF00");
+    formatter.addGradientRange(1., null, "#000000", "#00FF00", "#00FF00");
+    return formatter;
+  },
 };
