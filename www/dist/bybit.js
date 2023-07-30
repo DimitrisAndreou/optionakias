@@ -413,17 +413,16 @@ function drawSpreads(symbol, puts, calls, table_id) {
         bid: highPut.bidPrice - lowPut.askPrice,
         ask: highPut.askPrice - lowPut.bidPrice,
       }
-      function registerBetIfYield(betsByStrike, strike, betYield) {
+      function registerBetIfYield(betsByStrike, strike, betYield, allStrikes) {
         if (betYield > 0.0) {
           betsByStrike.set(strike, betYield);
+          allStrikes.add(strike);
         }
       }
       // For "under", one buys the spread
-      registerBetIfYield(betsUnder, lowStrike, spread.width / spread.ask - 1);
+      registerBetIfYield(betsUnder, lowStrike, spread.width / spread.ask - 1, allStrikes);
       // For "over", one sells the spread
-      registerBetIfYield(betsOver, highStrike, spread.width / (spread.width - spread.bid) - 1);
-      allStrikes.add(lowStrike);
-      allStrikes.add(highStrike);
+      registerBetIfYield(betsOver, highStrike, spread.width / (spread.width - spread.bid) - 1, allStrikes);
     });
     dteToBets.set(DTE, {
       betsUnder,
