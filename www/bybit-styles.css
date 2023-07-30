@@ -41,7 +41,7 @@
 
 .spreads {
   display: flex;
-  height: min-content;
+  height: 600px;
   align-items: center;
   justify-content: center;
 }
