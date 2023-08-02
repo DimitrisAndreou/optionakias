@@ -41,6 +41,7 @@ export class Table {
     );
     data.setProperty(0, 0, 'style', 'width:100px');
     table.draw(data, this._options);
+    return { data, table };
   }
 }
 

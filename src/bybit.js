@@ -1,5 +1,5 @@
 import { Table, formatters } from './table.js'
-import { makeOption } from './options.js'
+import { makeOption, SpreadBet } from './options.js'
 
 google.charts.load('current', { 'packages': ['corechart', 'table'] });
 google.charts.setOnLoadCallback(() => {
@@ -25,7 +25,6 @@ function loadOptions(symbol) {
     }
   );
 }
-
 
 function drawPutsTable(symbol, puts, table_id) {
   const putsTable = new Table({
@@ -131,91 +130,94 @@ function drawPutsChart(symbol, puts, chart_id) {
   chart.draw(data, options);
 }
 
-function drawSpreads(symbol, puts, calls, table_id) {
+function drawSpreads(symbol, puts, calls_unused, table_id) {
   const spotPrice = puts[0].underlyingPrice;
   // For each DTE
   // take consecutive strikes
   // when lower strike is below spot, use puts, otherwise switch to calls
   // Or just use puts for now, for simplicity.
-  const putsByDTEandStrike = new Map();
-  const allDTEs = new Set();
+  const putsByDTE = new Map();
   puts.forEach(put => {
     const DTE = put.DTE;
-    allDTEs.add(DTE);
-    if (!putsByDTEandStrike.has(DTE)) {
-      putsByDTEandStrike.set(DTE, new Map());
-    }
-    putsByDTEandStrike.get(DTE).set(put.strike, put);
+    putsByDTE.set(DTE, putsByDTE.get(DTE) || []);
+    putsByDTE.get(DTE).push(put);
   });
+
+  function listToPairs(list) {
+    const pairs = list.map((elem, index, array) => [array[index], array[index + 1]]);
+    // Removes the last pair, which is: [lastElem, undefined].
+    pairs.pop();
+    return pairs;
+  }
 
   const dteToBets = new Map();
+  const allDTEs = new Set();
   const allStrikes = new Set();
-  putsByDTEandStrike.forEach((putByStrike, DTE) => {
-    const sortedStrikes = [];
-    putByStrike.forEach((put) => {
-      sortedStrikes.push(put.strike);
-    });
-    sortedStrikes.sort(compareNumbers());
-
-    const strikePairs = sortedStrikes.map((elem, index, array) => [elem, array[index + 1]]);
-    // Removeσ the last pair, which is: [lastElem, undefined].
-    strikePairs.pop();
-
-    const betsUnder = new Map();
-    const betsOver = new Map();
-
-    strikePairs.forEach(([lowStrike, highStrike]) => {
-      const lowPut = putByStrike.get(lowStrike);
-      const highPut = putByStrike.get(highStrike);
-      // Ignore puts with zero liquidity.
-      if ([lowPut, highPut].some((option) => !option.bidSize || !option.askSize)) {
-        return;
+  putsByDTE.forEach((puts, DTE) => {
+    const strikeToPut = puts.reduce((strikeToPut, put) => {
+      strikeToPut[put.strike] = put;
+      return strikeToPut;
+    }, {});
+    const sortedStrikes = puts.map(put => put.strike).sort(compareNumbers());
+    const strikeToOverBets = new Map();
+    const strikeToUnderBets = new Map();
+    const registerBet = (bet, map) => {
+      if (bet && bet.earnedYield.pessimistic > 0.0) {
+        allStrikes.add(bet.bestStrike);
+        allDTEs.add(bet.strategy.DTE);
+        map.set(bet.bestStrike, bet)
       }
-
-      const spread = {
-        width: highStrike - lowStrike,
-        // Notice that always spreadBid < spreadAsk.
-        bid: highPut.bidPrice - lowPut.askPrice,
-        ask: highPut.askPrice - lowPut.bidPrice,
-      }
-      function registerBetIfYield(betsByStrike, strike, betYield, allStrikes) {
-        if (betYield > 0.0) {
-          betsByStrike.set(strike, betYield);
-          allStrikes.add(strike);
-        }
-      }
-      // For "under", one buys the spread
-      registerBetIfYield(betsUnder, lowStrike, spread.width / spread.ask - 1, allStrikes);
-      // For "over", one sells the spread
-      registerBetIfYield(betsOver, highStrike, spread.width / (spread.width - spread.bid) - 1, allStrikes);
+    };
+    listToPairs(sortedStrikes).forEach(([lowStrike, highStrike]) => {
+      const options = [strikeToPut[lowStrike], strikeToPut[highStrike]];
+      registerBet(SpreadBet.createOver(...options), strikeToOverBets);
+      registerBet(SpreadBet.createUnder(...options), strikeToUnderBets);
     });
-    dteToBets.set(DTE, {
-      betsUnder,
-      betsOver
-    });
+    dteToBets.set(DTE, { strikeToOverBets, strikeToUnderBets });
   });
 
-  const allStrikesArray = [...allStrikes];
   const betsTable = new Table({
     frozenColumns: 1,
     title: `All ${symbol} "Over" and "Under" bets (spreads). Each bet corresponds to a pair of puts; one bought and one`,
   }).defineColumn(`${symbol} price`, strike => strike, "number", formatters.dollars());
-  [...allDTEs].sort(compareNumbers(false)).forEach((DTE) => {
-    if (!allStrikesArray.some((strike) =>
-      !!dteToBets.get(DTE)?.betsUnder?.get(strike) ||
-      !!dteToBets.get(DTE)?.betsOver?.get(strike))) {
-      // Ignore empty columns.
-      return;
-    }
 
-    betsTable.defineColumn(`⬇️${DTE}`,
-      strike => dteToBets.get(DTE)?.betsUnder?.get(strike),
-      "number", formatters.percent(), formatters.positiveYields());
+  const allStrikesArray = [...allStrikes].sort(compareNumbers(false));
+  const allDTEsArray = [...allDTEs].sort(compareNumbers(false));
+
+  allDTEsArray.forEach(DTE => {
     betsTable.defineColumn(`${DTE}⬆️`,
-      strike => dteToBets.get(DTE)?.betsOver?.get(strike),
+      strike => dteToBets.get(DTE).strikeToOverBets.get(strike)?.earnedYield?.pessimistic || undefined,
+      "number", formatters.percent(), formatters.positiveYields());
+    betsTable.defineColumn(`⬇️${DTE}`,
+      strike => dteToBets.get(DTE).strikeToUnderBets.get(strike)?.earnedYield?.pessimistic || undefined,
       "number", formatters.percent(), formatters.positiveYields());
   });
-  betsTable.format(allStrikesArray.sort(compareNumbers()), table_id);
+
+  const { table } = betsTable.format(allStrikesArray, table_id);
+
+  // Print details whenever a cell is created.
+  // A Google Chart table's selection only supports rows, but we can
+  // get the cell index from the browser's window event. 
+  // From the row/col indexes, we have to find the corresponding spread,
+  // then explain to the user how one can trade it, and how its yield
+  // comes about.
+
+  google.visualization.events.addListener(table, 'select', () => {
+    const selection = table.getSelection();
+    if (!selection.length) {
+      return;
+    }
+    const row = selection[0].row;
+    const col = window.event.target.cellIndex;
+    const DTE = allDTEsArray[Math.trunc((col - 1) / 2)];
+    const isUnder = col % 2 === 0;
+    const strike = allStrikesArray[row];
+    const bets = dteToBets.get(DTE);
+    const directionBets = isUnder ? bets.strikeToUnderBets : bets.strikeToOverBets;
+    const bet = directionBets.get(strike);
+    const targetElement = document.getElementById(`${table_id}_explanation`);
+    targetElement.innerHTML = bet.explanationHtml;
+  });
 }
 
 function cacheKey(ticker) {
@@ -264,6 +266,7 @@ async function fetchByBitOptions(ticker = 'BTC') {
     };
     return result;
   } catch (error) {
+    console.error(error.stack);
     alert(`Error fetching Bybit data: ${error}`);
     return [error];
   }

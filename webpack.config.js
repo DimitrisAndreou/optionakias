@@ -11,9 +11,9 @@ module.exports = {
   },
   optimization: {
     usedExports: true,
-    minimize: false,
+    minimize: true,
   },
   externals: {
-    charts: 'google.charts'  // or any other alias you want, can be a regex too! check Webpack's doc for more
+    charts: 'google.charts'
   }
 };

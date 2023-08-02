@@ -1,3 +1,27 @@
+function parseDate(dateStr) {
+  const rx = /^(\d+)([A-Z]+)(\d+)$/;
+  const [unused, rawDay, rawMonth, rawYear] = dateStr.match(rx);
+  return new Date(parseInt("20" + rawYear), parseMonth(rawMonth), parseInt(rawDay));
+}
+
+function parseMonth(monthStr) {
+  switch (monthStr) {
+    case 'JAN': return 0;
+    case 'FEB': return 1;
+    case 'MAR': return 2;
+    case 'APR': return 3;
+    case 'MAY': return 4;
+    case 'JUN': return 5;
+    case 'JUL': return 6;
+    case 'AUG': return 7;
+    case 'SEP': return 8;
+    case 'OCT': return 9;
+    case 'NOV': return 10;
+    case 'DEC': return 11;
+  }
+  throw new Error("Unexpected month: [" + monthStr + "]");
+}
+
 export function makeOption(struct) {
   const [, , , type] = struct.symbol.split("-");
   if (type === 'P') {
@@ -37,101 +61,233 @@ export class Option {
   // volume24h: "0"
   constructor(struct) {
     const [symbol, rawDate, rawStrike, type] = struct.symbol.split("-");
-    this._symbol = symbol;
-    this._expirationDate = parseDate(rawDate);
-    this._DTE = Math.ceil((this._expirationDate - new Date()) / (1000 * 60 * 60 * 24));
-    this._strike = parseFloat(rawStrike);
-    this._type = type;
-    this._bidPrice = parseFloat(struct.bid1Price);
-    this._bidSize = parseFloat(struct.bid1Size);
-    this._markPrice = parseFloat(struct.markPrice);
-    this._askPrice = parseFloat(struct.ask1Price);
-    this._askSize = parseFloat(struct.ask1Size);
-    this._underlyingPrice = parseFloat(struct.indexPrice);
-    this._annualizedMaxGain = this._markPrice * 365 / this._DTE;
-    this._maxGainAsChange = this._strike / this._underlyingPrice - 1;
-    this._premiumAsPercent = this._markPrice / this._underlyingPrice;
+    this.id = struct.symbol;
+    this.symbol = symbol;
+    this.rawDate = rawDate;
+    this.strike = parseFloat(rawStrike);
+    this.type = type === 'P' ? 'PUT' : 'CALL';
+    this.expirationDate = parseDate(rawDate);
+    this.DTE = Math.ceil((this.expirationDate - new Date()) / (1000 * 60 * 60 * 24));
+    this.bidPrice = parseFloat(struct.bid1Price);
+    this.bidSize = parseFloat(struct.bid1Size);
+    this.markPrice = parseFloat(struct.markPrice);
+    this.askPrice = parseFloat(struct.ask1Price);
+    this.askSize = parseFloat(struct.ask1Size);
+    this.underlyingPrice = parseFloat(struct.indexPrice);
+    this.annualizedMaxGain = this.markPrice * 365 / this.DTE;
+    this.maxGainAsChange = this.strike / this.underlyingPrice - 1;
+    this.premiumAsPercent = this.markPrice / this.underlyingPrice;
   }
 
-  get symbol() { return this._symbol; }
-  get expirationDate() { return this._expirationDate; }
-  get DTE() { return this._DTE; }
-  get strike() { return this._strike; }
-  get isPut() { return this._type === 'P'; }
-  get isCall() { return this._type === 'C'; }
+  get isPut() { return this.type === 'PUT'; }
+  get isCall() { return this.type === 'CALL'; }
 
-  get bidPrice() { return this._bidPrice; }
-  get bidSize() { return this._bidSize; }
-  get markPrice() { return this._markPrice; }
-  get askPrice() { return this._askPrice; }
-  get askSize() { return this._askPrice; }
-
-  get maxGain() { return this._markPrice; }
-  get premium() { return this._markPrice; }
-  get premiumAsPercent() { return this._premiumAsPercent; }
+  // TODO: the following properties should be based on Price and Ratio instead.
+  get maxGain() { return this.markPrice; }
+  get premium() { return this.markPrice; }
   get maxGainInKind() { return this.premiumAsPercent; }
-  get annualizedMaxGain() { return this._annualizedMaxGain; }
-  get underlyingPrice() { return this._underlyingPrice; }
-  get maxGainAsChange() { return this._maxGainAsChange; }
 
-  // Note that 'breakEven' is defined in subclasses.
+  // This depends on a subclass defining "breakEven".
   get breakEvenAsChange() { return this.breakEven / this.underlyingPrice - 1.0; }
+
+  priceToOpen(size) {
+    return Price.fromMarket(size, this.bidPrice, this.markPrice, this.askPrice);
+  }
+
+  priceToClose(size, underlyingPrice) {
+    // We close the opened position, hence -size.
+    return Price.fromExercise(-size, this.moneyness(underlyingPrice));
+  }
 }
 
 class PutOption extends Option {
   constructor(struct) {
     super(struct);
-    this._breakEven = super.strike - super.premium;
-    this._maxLoss = this._breakEven;
-    this._maxGainRatio = super.maxGain / this._maxLoss;
-    this._breakEvenVsHodler = super.underlyingPrice * (1 + this._maxGainRatio);
-    this._gainAtCurrentPrice = Math.min(super.underlyingPrice - this._breakEven, this._maxGain);
-    this._gainAtCurrentPriceRatio = this._gainAtCurrentPrice / this._maxLoss;
-    this._annualizedMaxGainInKind = this._maxGainInKind * 365 / this._DTE;
-    this._annualizedMaxGainRatio = this._maxGainRatio * 365 / this._DTE;
+    this.breakEven = this.strike - this.premium;
+    this.maxLoss = this.breakEven;
+    this.maxGainRatio = this.maxGain / this.maxLoss;
+    this.breakEvenVsHodler = this.underlyingPrice * (1 + this.maxGainRatio);
+    this.gainAtCurrentPrice = Math.min(this.underlyingPrice - this.breakEven, this.maxGain);
+    this.gainAtCurrentPriceRatio = this.gainAtCurrentPrice / this.maxLoss;
+    this.annualizedMaxGainInKind = this.maxGainInKind * 365 / this.DTE;
+    this.annualizedMaxGainRatio = this.maxGainRatio * 365 / this.DTE;
   }
-  get breakEven() { return this._breakEven; }
-  get maxLoss() { return this._maxLoss; }
-  get maxGainRatio() { return this._maxGainRatio; }
-  get breakEvenVsHodler() { return this._breakEvenVsHodler; }
-  get gainAtCurrentPrice() { return this._gainAtCurrentPrice; }
-  get gainAtCurrentPriceRatio() { return this._gainAtCurrentPriceRatio; }
-  get annualizedMaxGainInKind() { return this._annualizedMaxGainInKind; }
-  get annualizedMaxGainRatio() { return this._annualizedMaxGainRatio; }
+
+  moneyness(underlyingPrice) {
+    return Math.max(0, this.strike - underlyingPrice);
+  }
 }
 
 class CallOption extends Option {
   constructor(struct) {
     super(struct);
-    this._breakEven = super.strike + super.premium;
-    this._gainAtCurrentPrice = Math.min(this._breakEven - super._underlyingPrice, super.maxGain);
-    this._breakEvenVsShorter = super.underlyingPrice - super.premium;
+    this.breakEven = this.strike + this.premium;
+    this.gainAtCurrentPrice = Math.min(this.breakEven - this.underlyingPrice, this.maxGain);
+    this.breakEvenVsShorter = this.underlyingPrice - this.premium;
   }
-  get breakEven() { return this._breakEven; }
-  get gainAtCurrentPrice() { return this._gainAtCurrentPrice; }
-  get breakEvenVsShorter() { return this._breakEvenVsShorter; }
+
+  moneyness(underlyingPrice) {
+    return Math.max(0, underlyingPrice - this.strike);
+  }
 }
 
-function parseDate(dateStr) {
-  const rx = /^(\d+)([A-Z]+)(\d+)$/;
-  const [unused, rawDay, rawMonth, rawYear] = dateStr.match(rx);
-  return new Date(parseInt("20" + rawYear), parseMonth(rawMonth), parseInt(rawDay));
+// A price which can either be derived from the "mark price" (mid point between bid and ask) or
+// the pessimistic side (the bid if you are trying to sell, or the ask if you are trying to buy).
+// The "pessimistic" price is what you could immediately get via a "Market order".
+class Price {
+  constructor(fair = 0.0, pessimistic = fair) {
+    this.fair = fair;
+    this.pessimistic = pessimistic;
+  }
+
+  copy() {
+    return new Price(this.fair, this.pessimistic);
+  }
+
+  add(that) {
+    this.fair += that.fair;
+    this.pessimistic += that.pessimistic;
+    return this;
+  }
+
+  static fromMarket(size, bidPrice, markPrice, askPrice) {
+    if (size >= 0) {
+      // Means we buy (we pay), hence the "-".
+      return new Price(-size * markPrice, -size * Math.max(markPrice, askPrice));
+    }
+    // Means we sell (we get paid), hence size is negated (becomes positive).
+    return new Price(-size * markPrice, -size * Math.min(bidPrice, markPrice));
+  }
+
+  static fromExercise(size, exercisedPrice) {
+    return Price.fromMarket(size, exercisedPrice, exercisedPrice, exercisedPrice)
+  }
 }
 
-function parseMonth(monthStr) {
-  switch (monthStr) {
-    case 'JAN': return 0;
-    case 'FEB': return 1;
-    case 'MAR': return 2;
-    case 'APR': return 3;
-    case 'MAY': return 4;
-    case 'JUN': return 5;
-    case 'JUL': return 6;
-    case 'AUG': return 7;
-    case 'SEP': return 8;
-    case 'OCT': return 9;
-    case 'NOV': return 10;
-    case 'DEC': return 11;
+// Refers to multiple option positions of the same underlying and same expiration.
+class Strategy {
+  constructor() {
+    this.positions = new Map();
   }
-  throw new Error("Unexpected month: [" + monthStr + "]");
+
+  addLeg(option, size = 0) {
+    if (this.symbol === undefined) {
+      this.symbol = option.symbol;
+      this.rawDate = option.rawDate;
+      this.DTE = option.DTE;
+      this.underlyingPrice = option.underlyingPrice;
+    } else {
+      if (this.symbol !== option.symbol || this.rawDate !== option.rawDate) {
+        throw new Error(`Cannot mix different symbols or expirations: ${this.symbol}-${this.rawDate} vs ${option.symbol}-${option.rawDate}`);
+      }
+    }
+    this.positions.set(option, (this.positions.get(option) || 0) + size);
+    return this;
+  }
+
+  // priceVisitor(size, leg, price)
+  priceToOpen(sum = new Price(), priceVisitor = () => undefined) {
+    this.positions.forEach((size, leg) => {
+      const legPriceToOpen = leg.priceToOpen(size);
+      priceVisitor(size, leg, legPriceToOpen);
+      sum.add(leg.priceToOpen(size));
+    });
+    return sum;
+  }
+
+  // priceVisitor(size, leg, price)
+  priceToClose(underlyingPrice, sum = new Price(), priceVisitor = () => undefined) {
+    this.positions.forEach((size, leg) => {
+      const legPriceToClose = leg.priceToClose(size, underlyingPrice);
+      priceVisitor(size, leg, legPriceToClose);
+      sum.add(legPriceToClose);
+    });
+    return sum;
+  }
+}
+
+export class SpreadBet {
+  constructor(strategy, bestStrike, worstStrike) {
+    this.strategy = strategy;
+    this.bestStrike = bestStrike;
+    this.worstStrike = worstStrike;
+    const isOver = bestStrike > worstStrike;
+
+    let explanationHtml = `<ol>`;
+
+    const legExplainer = (size, leg, price) => {
+      explanationHtml += `<ul><li>`;
+      explanationHtml += `${size} of <b>${leg.id}</b>: value will be $${price.pessimistic}.`
+      explanationHtml += `</li></ul>`;
+    };
+
+    const openPositionExplainer = (size, leg, price) => {
+      if (size === 0) return;
+      explanationHtml += `<li>`;
+      explanationHtml += `You <b>${size > 0 ? "BUY" : "SELL"}</b> ${Math.abs(size)} of this option: <b>${leg.id}</b>.`;
+      explanationHtml += `You should ${size > 0 ? "pay" : "receive"} about $${Math.abs(price.fair).toFixed(1)}, `;
+      explanationHtml += `or at ${size > 0 ? "most" : "least"} $<b>${Math.abs(price.pessimistic).toFixed(1)}</b> via a market order.`;
+      explanationHtml += `</li>`;
+    };
+    const priceToOpen = this.strategy.priceToOpen(new Price(), openPositionExplainer);
+    explanationHtml += `</ol><hr><p>Then, at expiration (on ${strategy.rawDate}), there are two outcomes:</p><ul>`;
+    explanationHtml += `<li>The <b>best outcome</b> is that ${strategy.symbol} will be at <b>$${bestStrike}</b> (or `;
+    explanationHtml += `${bestStrike > worstStrike ? 'above' : 'below'}). Then this will be the value of your positions:`;
+    const maxGain = this.strategy.priceToClose(bestStrike, new Price(), legExplainer);
+
+    explanationHtml += `<p>That is, a total value of <b>$${maxGain.pessimistic.toFixed(1)}</b>. `;
+    explanationHtml += `Together with the opening trade, the final P&L would be: `;
+    const bestFinal = priceToOpen.copy().add(maxGain);
+    explanationHtml += `$<b>${bestFinal.fair.toFixed(1)}</b> or at worst (with market orders) <b>$${bestFinal.pessimistic.toFixed(1)}</b></p></li>`;
+
+    explanationHtml += `<li>The <b>worst outcome</b> is that ${strategy.symbol} will be at <b>$${worstStrike}</b> (or `;
+    explanationHtml += `${worstStrike < bestStrike ? 'below' : 'above'}). Then this will be the value of your positions:`;
+    const maxLoss = this.strategy.priceToClose(worstStrike, new Price(), legExplainer);
+    explanationHtml += `<p>That is, a total value of <b>$${maxLoss.pessimistic.toFixed(1)}</b>. `;
+    explanationHtml += `Together with the opening trade, the final P&L would be: `;
+    const worstFinal = priceToOpen.copy().add(maxLoss);
+    explanationHtml += `<b>$${worstFinal.fair.toFixed(1)}</b> or at worst (with market orders) <b>$${worstFinal.pessimistic.toFixed(1)}</b></p></li>`;
+    explanationHtml += `</li></ul>`;
+
+    this.earnedYield = new Price(
+      -bestFinal.fair / worstFinal.fair,
+      -bestFinal.pessimistic / worstFinal.pessimistic);
+
+    explanationHtml = `<p>How to create this position: ` +
+      `<b>${strategy.symbol}</b> (currently at <b>$${strategy.underlyingPrice}</b>) <b>${isOver ? "OVER" : "UNDER"} $${bestStrike} after ` +
+      `${strategy.DTE} days</b> (${strategy.rawDate}), which should yield (if you win) a profit of at least ` +
+      `<b>${(this.earnedYield.pessimistic * 100).toFixed(1)}%</b></p>` + explanationHtml;
+
+    explanationHtml += `<p><b>Hence</b>, given that the MaxGain is $${bestFinal.fair.toFixed(1)} (or at worst $${bestFinal.pessimistic.toFixed(1)}), `;
+    explanationHtml += `and the MaxLoss is $${worstFinal.fair.toFixed(1)} (or at worst $${worstFinal.pessimistic.toFixed(1)}), `;
+    explanationHtml += `the yield of this bet (if you win it) is ${(this.earnedYield.fair * 100).toFixed(1)}% `;
+    explanationHtml += `or at least <b>${(this.earnedYield.pessimistic * 100).toFixed(1)}%</b>, with market orders.`
+    this.explanationHtml = explanationHtml;
+  }
+
+  // Over strategy: sell high (max gain price), buy low (max loss point).
+  static createOver(option1, option2) {
+    if (SpreadBet.noLiquidity(option1) || SpreadBet.noLiquidity(option2)) return undefined;
+    const [low, high] = SpreadBet.lowStrikeFirst(option1, option2);
+    return new SpreadBet(new Strategy().addLeg(high, -1).addLeg(low, 1), high.strike, low.strike);
+  }
+
+  // Under strategy: sell low (max gain price), buy high (max loss point).
+  static createUnder(option1, option2) {
+    if (SpreadBet.noLiquidity(option1) || SpreadBet.noLiquidity(option2)) return undefined;
+    const [low, high] = SpreadBet.lowStrikeFirst(option1, option2);
+    return new SpreadBet(new Strategy().addLeg(low, -1).addLeg(high, 1), low.strike, high.strike);
+  }
+
+  static lowStrikeFirst(option1, option2) {
+    if (option1.type !== option2.type || option1.strike === option2.strike) {
+      throw new Error('Can only build a spread from options of the same symbol, same type, different strike: ' +
+        `${option1.id}, ${option2.id} `);
+    }
+    return option1.strike < option2.strike ? [option1, option2] : [option2, option1];
+  }
+
+  static noLiquidity(option) {
+    return;
+  }
 }
