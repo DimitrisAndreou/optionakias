@@ -185,6 +185,19 @@ class Strategy {
     return this;
   }
 
+  // How many contracts can be opened?
+  maxSize() {
+    let mostScarceOffer = Number.MAX_VALUE;
+    this.positions.forEach((size, leg) => {
+      if (size < 0) {
+        mostScarceOffer = Math.min(mostScarceOffer, leg.bidSize);
+      } else if (size > 0) {
+        mostScarceOffer = Math.min(mostScarceOffer, leg.askSize);
+      }
+    });
+    return mostScarceOffer;
+  }
+
   // priceVisitor(size, leg, price)
   priceToOpen(sum = new Price(), priceVisitor = () => undefined) {
     this.positions.forEach((size, leg) => {
@@ -217,7 +230,7 @@ export class SpreadBet {
 
     const legExplainer = (size, leg, price) => {
       explanationHtml += `<ul><li>`;
-      explanationHtml += `${size} of <b>${leg.id}</b>: value will be $${price.pessimistic}.`
+      explanationHtml += `<b>${size} of ${leg.id}</b>: value will be <b>$${price.pessimistic}</b>.`
       explanationHtml += `</li></ul>`;
     };
 
@@ -230,7 +243,10 @@ export class SpreadBet {
       explanationHtml += `</li>`;
     };
     const priceToOpen = this.strategy.priceToOpen(new Price(), openPositionExplainer);
-    explanationHtml += `</ol><hr><p>Then, at expiration (on ${strategy.rawDate}), there are two outcomes:</p><ul>`;
+    const isDebit = priceToOpen.pessimistic < 0;
+    explanationHtml += `</ol><p><hr>Thus to open the trade, you will <b>${isDebit ? "pay" : "receive"} `;
+    explanationHtml += `$${Math.abs(priceToOpen.pessimistic).toFixed(1)}, net.</b></p>`;
+    explanationHtml += `<hr><p>Then, at expiration (on ${strategy.rawDate}), there are two outcomes:</p><ul>`;
     explanationHtml += `<li>The <b>best outcome</b> is that ${strategy.symbol} will be at <b>$${bestStrike}</b> (or `;
     explanationHtml += `${bestStrike > worstStrike ? 'above' : 'below'}). Then this will be the value of your positions:`;
     const maxGain = this.strategy.priceToClose(bestStrike, new Price(), legExplainer);
@@ -269,14 +285,16 @@ export class SpreadBet {
   static createOver(option1, option2) {
     if (SpreadBet.noLiquidity(option1) || SpreadBet.noLiquidity(option2)) return undefined;
     const [low, high] = SpreadBet.lowStrikeFirst(option1, option2);
-    return new SpreadBet(new Strategy().addLeg(high, -1).addLeg(low, 1), high.strike, low.strike);
+    const size = Math.min(1, low.askSize, high.bidSize);
+    return new SpreadBet(new Strategy().addLeg(high, -size).addLeg(low, size), high.strike, low.strike);
   }
 
   // Under strategy: sell low (max gain price), buy high (max loss point).
   static createUnder(option1, option2) {
     if (SpreadBet.noLiquidity(option1) || SpreadBet.noLiquidity(option2)) return undefined;
     const [low, high] = SpreadBet.lowStrikeFirst(option1, option2);
-    return new SpreadBet(new Strategy().addLeg(low, -1).addLeg(high, 1), low.strike, high.strike);
+    const size = Math.min(1, low.bidSize, high.askSize);
+    return new SpreadBet(new Strategy().addLeg(low, -size).addLeg(high, size), low.strike, high.strike);
   }
 
   static lowStrikeFirst(option1, option2) {
