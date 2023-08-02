@@ -130,18 +130,37 @@ function drawPutsChart(symbol, puts, chart_id) {
   chart.draw(data, options);
 }
 
-function drawSpreads(symbol, puts, calls_unused, table_id) {
+function drawSpreads(symbol, puts, calls, table_id) {
   const spotPrice = puts[0].underlyingPrice;
   // For each DTE
   // take consecutive strikes
   // when lower strike is below spot, use puts, otherwise switch to calls
   // Or just use puts for now, for simplicity.
-  const putsByDTE = new Map();
-  puts.forEach(put => {
-    const DTE = put.DTE;
-    putsByDTE.set(DTE, putsByDTE.get(DTE) || []);
-    putsByDTE.get(DTE).push(put);
-  });
+  function indexOptionsByDTE(options) {
+    const optionsByDTE = new Map();
+    options.forEach(option => {
+      const DTE = option.DTE;
+      optionsByDTE.set(DTE, optionsByDTE.get(DTE) || []);
+      optionsByDTE.get(DTE).push(option);
+    });
+    return optionsByDTE;
+  }
+  const putsByDTE = indexOptionsByDTE(puts);
+  const callsByDTE = indexOptionsByDTE(calls);
+
+  function allDTEsAndStrikes(options) {
+    const allDTEs = new Set();
+    const allStrikes = new Set();
+    options.forEach(option => {
+      allDTEs.add(option.DTE);
+      allStrikes.add(option.strike);
+    });
+    return {
+      allDTEs,
+      allStrikes,
+    };
+  }
+  const { allDTEs, allStrikes } = allDTEsAndStrikes(puts);
 
   function listToPairs(list) {
     const pairs = list.map((elem, index, array) => [array[index], array[index + 1]]);
@@ -151,27 +170,38 @@ function drawSpreads(symbol, puts, calls_unused, table_id) {
   }
 
   const dteToBets = new Map();
-  const allDTEs = new Set();
-  const allStrikes = new Set();
-  putsByDTE.forEach((puts, DTE) => {
-    const strikeToPut = puts.reduce((strikeToPut, put) => {
-      strikeToPut[put.strike] = put;
-      return strikeToPut;
-    }, {});
+  allDTEs.forEach(DTE => {
+    const puts = putsByDTE.get(DTE);
+    const calls = callsByDTE.get(DTE);
+
+    function indexOptionsByStrike(options = []) {
+      return options.reduce((strikeToOption, option) => {
+        strikeToOption[option.strike] = option;
+        return strikeToOption;
+      }, {});
+    }
+    const strikeToPut = indexOptionsByStrike(puts);
+    const strikeToCall = indexOptionsByStrike(calls);
     const sortedStrikes = puts.map(put => put.strike).sort(compareNumbers());
     const strikeToOverBets = new Map();
     const strikeToUnderBets = new Map();
     const registerBet = (bet, map) => {
-      if (bet && bet.earnedYield.pessimistic > 0.0) {
-        allStrikes.add(bet.bestStrike);
-        allDTEs.add(bet.strategy.DTE);
-        map.set(bet.bestStrike, bet)
-      }
+      map.set(bet.bestStrike, bet)
     };
     listToPairs(sortedStrikes).forEach(([lowStrike, highStrike]) => {
-      const options = [strikeToPut[lowStrike], strikeToPut[highStrike]];
-      registerBet(SpreadBet.createOver(...options), strikeToOverBets);
-      registerBet(SpreadBet.createUnder(...options), strikeToUnderBets);
+      const putsSpread = [strikeToPut[lowStrike], strikeToPut[highStrike]].filter(o => o !== undefined);
+      const callsSpread = [strikeToCall[lowStrike], strikeToCall[highStrike]].filter(o => o !== undefined);
+
+      let selectedSpread = putsSpread;
+      if (spotPrice < highStrike && callsSpread.length === 2) {
+        selectedSpread = callsSpread;
+      }
+      if (selectedSpread.length !== 2) {
+        return;
+      }
+      console.log(`${spotPrice} ${DTE} ${lowStrike}-${highStrike} : selected: ${selectedSpread[0].type}`);
+      registerBet(SpreadBet.createOver(...selectedSpread), strikeToOverBets);
+      registerBet(SpreadBet.createUnder(...selectedSpread), strikeToUnderBets);
     });
     dteToBets.set(DTE, { strikeToOverBets, strikeToUnderBets });
   });

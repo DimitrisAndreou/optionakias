@@ -283,7 +283,6 @@ export class SpreadBet {
 
   // Over strategy: sell high (max gain price), buy low (max loss point).
   static createOver(option1, option2) {
-    if (SpreadBet.noLiquidity(option1) || SpreadBet.noLiquidity(option2)) return undefined;
     const [low, high] = SpreadBet.lowStrikeFirst(option1, option2);
     const size = Math.min(1, low.askSize, high.bidSize);
     return new SpreadBet(new Strategy().addLeg(high, -size).addLeg(low, size), high.strike, low.strike);
@@ -291,7 +290,6 @@ export class SpreadBet {
 
   // Under strategy: sell low (max gain price), buy high (max loss point).
   static createUnder(option1, option2) {
-    if (SpreadBet.noLiquidity(option1) || SpreadBet.noLiquidity(option2)) return undefined;
     const [low, high] = SpreadBet.lowStrikeFirst(option1, option2);
     const size = Math.min(1, low.bidSize, high.askSize);
     return new SpreadBet(new Strategy().addLeg(low, -size).addLeg(high, size), low.strike, high.strike);
