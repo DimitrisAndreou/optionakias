@@ -138,6 +138,8 @@ class Price {
   constructor(fair = 0.0, pessimistic = fair) {
     this.fair = fair;
     this.pessimistic = pessimistic;
+    this.fairAsBet = fair + 1;
+    this.pessimisticAsBet = pessimistic + 1;
   }
 
   copy() {

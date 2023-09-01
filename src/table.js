@@ -54,15 +54,20 @@ export const formatters = {
   percent: () => new google.visualization.NumberFormat({
     pattern: '#,###%'
   }),
+  two_decimals_number: () => new google.visualization.NumberFormat({
+    pattern: '#.00'
+  }),
   date: () => new google.visualization.DateFormat({
     pattern: "dd MMM yyyy"
   }),
   positiveYields: () => {
     const formatter = new google.visualization.ColorFormat();
-    formatter.addGradientRange(0.0, 1.0, "#000000", "#32CD32", "#00FF00");
-    formatter.addGradientRange(1.0, 2.0, "#000000", "#00FF00", "#00FFFF");
-    formatter.addGradientRange(2.0, 10.0, "#000000", "#00FFFF", "#FFD700");
-    formatter.addGradientRange(10.0, null, "#000000", "#00FFFF", "#FF69B4");
+    formatter.addGradientRange(1.0, 2.0, "#000000", "#aff7b6", "#93ecf8");
+    formatter.addGradientRange(2.0, 4.0, "#000000", "#93ecf8", "#ffff50");
+    formatter.addGradientRange(4.0, 8.0, "#000000", "#ffff50", "#fccf4b");
+    formatter.addGradientRange(8.0, 16.0, "#000000", "#fccf4b", "#ffaaff");
+    formatter.addGradientRange(16.0, 32.0, "#000000", "#ffaaff", "#ddaaff");
+    formatter.addGradientRange(32.0, null, "#000000", "#ddaaff", "#f2725d");
     return formatter;
   },
   maxGainPercent: () => {

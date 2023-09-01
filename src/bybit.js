@@ -186,7 +186,9 @@ function drawSpreads(symbol, puts, calls, table_id) {
     const strikeToOverBets = new Map();
     const strikeToUnderBets = new Map();
     const registerBet = (bet, map) => {
-      map.set(bet.bestStrike, bet)
+      if (bet.earnedYield?.pessimisticAsBet > 1.0) {
+        map.set(bet.bestStrike, bet)
+      }
     };
     listToPairs(sortedStrikes).forEach(([lowStrike, highStrike]) => {
       const putsSpread = [strikeToPut[lowStrike], strikeToPut[highStrike]].filter(o => o !== undefined);
@@ -216,11 +218,11 @@ function drawSpreads(symbol, puts, calls, table_id) {
 
   allDTEsArray.forEach(DTE => {
     betsTable.defineColumn(`${DTE}⬆️`,
-      strike => dteToBets.get(DTE).strikeToOverBets.get(strike)?.earnedYield?.pessimistic || undefined,
-      "number", formatters.percent(), formatters.positiveYields());
+      strike => dteToBets.get(DTE).strikeToOverBets.get(strike)?.earnedYield?.pessimisticAsBet || undefined,
+      "number", formatters.two_decimals_number(), formatters.positiveYields());
     betsTable.defineColumn(`⬇️${DTE}`,
-      strike => dteToBets.get(DTE).strikeToUnderBets.get(strike)?.earnedYield?.pessimistic || undefined,
-      "number", formatters.percent(), formatters.positiveYields());
+      strike => dteToBets.get(DTE).strikeToUnderBets.get(strike)?.earnedYield?.pessimisticAsBet || undefined,
+      "number", formatters.two_decimals_number(), formatters.positiveYields());
   });
 
   const { table } = betsTable.format(allStrikesArray, table_id);
