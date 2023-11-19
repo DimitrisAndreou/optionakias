@@ -74,17 +74,21 @@ export class Option {
     this.askPrice = parseFloat(struct.ask1Price);
     this.askSize = parseFloat(struct.ask1Size);
     this.underlyingPrice = parseFloat(struct.indexPrice);
-    this.annualizedMaxGain = this.markPrice * 365 / this.DTE;
+    this.annualizedMaxGain = this.maxGain * 365 / this.DTE;
     this.maxGainAsChange = this.strike / this.underlyingPrice - 1;
-    this.premiumAsPercent = this.markPrice / this.underlyingPrice;
+    this.premiumAsPercent = this.premium / this.underlyingPrice;
   }
 
   get isPut() { return this.type === 'PUT'; }
   get isCall() { return this.type === 'CALL'; }
 
   // TODO: the following properties should be based on Price and Ratio instead.
-  get maxGain() { return this.markPrice; }
-  get premium() { return this.markPrice; }
+  get maxGain() { return this.premium; }
+  // Hacky way to do the calculations in a "pessimistic" manner:
+  // pessimistic because we're viewing it from the seller's point of view,
+  // hence we use the bid.
+  // The mark price can be very far away; pointless to don't use it.
+  get premium() { return this.bidPrice; }
   get maxGainInKind() { return this.premiumAsPercent; }
 
   // This depends on a subclass defining "breakEven".
@@ -303,9 +307,5 @@ export class SpreadBet {
         `${option1.id}, ${option2.id} `);
     }
     return option1.strike < option2.strike ? [option1, option2] : [option2, option1];
-  }
-
-  static noLiquidity(option) {
-    return;
   }
 }

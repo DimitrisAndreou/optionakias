@@ -33,7 +33,7 @@ function drawPutsTable(symbol, puts, table_id) {
     .defineColumn("EXPIRATION<br>DATE", put => put.expirationDate, "date")
     .defineColumn("DTE", put => put.DTE, "number")
     .defineColumn(`${symbol} PUT<br>STRIKE`, put => put.strike, "number", formatters.dollars())
-    .defineColumn("PREMIUM ($)<br>(=MAX GAIN)", put => put.markPrice, "number", formatters.dollars())
+    .defineColumn("PREMIUM ($)<br>(=MAX GAIN)", put => put.maxGain, "number", formatters.dollars())
     .defineColumn("BREAKEVEN ($)<br>(=MAX LOSS)", put => put.breakEven, "number", formatters.dollars())
     .defineColumn("BREAKEVEN (%)", put => put.breakEvenAsChange, "number", formatters.percent(), formatters.percentSmallerBetter())
     .defineColumn("MAX GAIN (%)", put => put.maxGainRatio, "number", formatters.percent(), formatters.maxGainPercent())
@@ -53,7 +53,7 @@ function drawCallsTable(symbol, calls, table_id) {
     .defineColumn("EXPIRATION DATE", call => call.expirationDate, "date")
     .defineColumn("DAYS TILL EXPIRATION", call => call.DTE, "number")
     .defineColumn(`${symbol} CALL<br>STRIKE`, call => call.strike, "number", formatters.dollars())
-    .defineColumn("PREMIUM (=MAX GAIN) ($)", call => call.markPrice, "number", formatters.dollars())
+    .defineColumn("PREMIUM (=MAX GAIN) ($)", call => call.maxGain, "number", formatters.dollars())
     .defineColumn("PREMIUM (%)", call => call.premiumAsPercent, "number", formatters.percent())
     .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
     .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent(), formatters.percentBiggerBetter())
@@ -132,10 +132,7 @@ function drawPutsChart(symbol, puts, chart_id) {
 
 function drawSpreads(symbol, puts, calls, table_id) {
   const spotPrice = puts[0].underlyingPrice;
-  // For each DTE
-  // take consecutive strikes
-  // when lower strike is below spot, use puts, otherwise switch to calls
-  // Or just use puts for now, for simplicity.
+  // For each DTE, process each pair of consecutive strikes.
   function indexOptionsByDTE(options) {
     const optionsByDTE = new Map();
     options.forEach(option => {
@@ -195,6 +192,7 @@ function drawSpreads(symbol, puts, calls, table_id) {
       const callsSpread = [strikeToCall[lowStrike], strikeToCall[highStrike]].filter(o => o !== undefined);
 
       let selectedSpread = putsSpread;
+      // When lower strike is below spot, use puts, otherwise switch to calls (better liquidity).
       if (spotPrice < highStrike && callsSpread.length === 2) {
         selectedSpread = callsSpread;
       }
