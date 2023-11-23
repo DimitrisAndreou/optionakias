@@ -17,6 +17,7 @@ function loadOptions(symbol) {
       drawPutsTable(symbol, puts, `${symbol}_puts_table`);
       drawCallsTable(symbol, calls, `${symbol}_calls_table`);
       drawPutsChart(symbol, puts, `${symbol}_puts_chart`);
+      drawCallsChart(symbol, calls, `${symbol}_calls_chart`);
       drawSpreads(symbol, puts, calls, `${symbol}_spreads_table`);
     },
     error => {
@@ -123,6 +124,73 @@ function drawPutsChart(symbol, puts, chart_id) {
         `Expiration: ${formatters.date().formatValue(put.expirationDate)}\n` +
         `BreakEven: ${formatters.dollars().formatValue(put.breakEven)}\n` +
         `Max gain: ${formatters.percent().formatValue(put.maxGainRatio)}`;
+      data.addRows([row]);
+    });
+
+  const chart = new google.visualization.LineChart(document.getElementById(chart_id));
+  chart.draw(data, options);
+}
+
+function drawCallsChart(symbol, calls, chart_id) {
+  const boldText = {
+    fontSize: 18,
+    bold: true,
+  };
+  const options = {
+    title: `All ${symbol} Calls (Each line is an expiration date, N days from today)`,
+    titleTextStyle: {
+      fontSize: 24,
+      bold: true,
+    },
+    hAxis: {
+      title: `$ Strike (the price you promise to sell ${symbol} at)`, format: '$#,###',
+      direction: -1,
+      titleTextStyle: boldText,
+    },
+    vAxis: { title: 'Premium ($)', format: '$#,###', titleTextStyle: boldText, },
+    legend: { position: 'top' },
+    curveType: 'function',
+    pointSize: 5,
+  };
+
+  const data = new google.visualization.DataTable();
+  data.addColumn({ type: 'number', pattern: '$#,###' });
+
+  const dteToSeries = new Map();
+  calls.forEach(call => {
+    if (!dteToSeries.has(call.DTE)) {
+      dteToSeries.set(call.DTE, dteToSeries.size);
+      data.addColumn({ type: 'number', label: `${call.DTE}`, pattern: '$#,###' });
+      data.addColumn({ role: 'tooltip' });
+    }
+  });
+
+  // DTE to the greatest strike that is below the spot price.
+  // I.e. if BTC price is $30300, let's plot the $30000 strike too,
+  // instead of going down to $29000 or so.
+  const maxStrikeBelowSpot = new Map();
+  calls
+    .filter(call => call.strike < call.underlyingPrice)
+    .forEach(call =>
+      maxStrikeBelowSpot.set(
+        call.DTE,
+        Math.max(call.strike, maxStrikeBelowSpot.get(call.DTE) || call.strike)
+      )
+    );
+
+  calls
+    .filter(call => call.strike >= (maxStrikeBelowSpot.get(call.DTE) || 0))
+    .forEach(call => {
+      const row = Array(1 + dteToSeries.size * 2);
+      row[0] = call.strike;
+
+      const series = dteToSeries.get(call.DTE);
+      row[1 + series * 2 + 0] = call.premium;
+      row[1 + series * 2 + 1] =
+        `Strike: ${formatters.dollars().formatValue(call.strike)}\n` +
+        `Expiration: ${formatters.date().formatValue(call.expirationDate)}\n` +
+        `BreakEven: ${formatters.dollars().formatValue(call.breakEven)}\n` +
+        `Max gain: ${formatters.dollars().formatValue(call.premium)}`;
       data.addRows([row]);
     });
 
