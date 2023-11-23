@@ -144,7 +144,7 @@ function drawCallsChart(symbol, calls, chart_id) {
     },
     hAxis: {
       title: `$ Strike (the price you promise to sell ${symbol} at)`, format: '$#,###',
-      direction: -1,
+      direction: 1,
       titleTextStyle: boldText,
     },
     vAxis: { title: 'Premium ($)', format: '$#,###', titleTextStyle: boldText, },
