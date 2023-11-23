@@ -18,7 +18,7 @@ function loadOptions(symbol) {
       drawCallsTable(symbol, calls, `${symbol}_calls_table`);
       drawPutsChart(symbol, puts, `${symbol}_puts_chart`);
       drawCallsChart(symbol, calls, `${symbol}_calls_chart`);
-      drawSpreads(symbol, puts, calls, `${symbol}_spreads_table`);
+      drawSpreads(symbol, puts, calls, `${symbol}_spreads_table`, `${symbol}_touch_table`);
     },
     error => {
       console.error(error.stack);
@@ -29,7 +29,8 @@ function loadOptions(symbol) {
 
 function drawPutsTable(symbol, puts, table_id) {
   const putsTable = new Table({
-    frozenColumns: 4
+    frozenColumns: 4,
+    frozenRows: 1,
   })
     .defineColumn("EXPIRATION<br>DATE", put => put.expirationDate, "date")
     .defineColumn("DTE", put => put.DTE, "number")
@@ -48,7 +49,8 @@ function drawPutsTable(symbol, puts, table_id) {
 
 function drawCallsTable(symbol, calls, table_id) {
   const callsTable = new Table({
-    frozenColumns: 4
+    frozenColumns: 4,
+    frozenRows: 1,
   })
     .defineColumn("SYMBOL", () => symbol + " CALLS", "string")
     .defineColumn("EXPIRATION DATE", call => call.expirationDate, "date")
@@ -58,9 +60,15 @@ function drawCallsTable(symbol, calls, table_id) {
     .defineColumn("PREMIUM (%)", call => call.premiumAsPercent, "number", formatters.percent())
     .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
     .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent(), formatters.percentBiggerBetter())
-    // ["MAX GAIN WHEN " + call.option.symbol + " PERFORMS WORSE THAN (%)"]: call.decorations.maxGainAsChange,
-    // "BREAKEVEN VS SPOT SHORT": call.decorations.breakEvenVsShorter,
     ;
+  // TODO: offer these columns:
+  // 1..4) same first 4 columns as above
+  // 5) premium ($)
+  // 6) breakeven (if premium = $)
+  // 7) breakeven (%) (if premium = $)
+  // 8) premium (asset)
+  // 9) breakeven (if premium = asset)
+  // 10) breakeven (%) (if premium = asset)
   callsTable.format(calls, table_id);
 }
 
@@ -198,7 +206,7 @@ function drawCallsChart(symbol, calls, chart_id) {
   chart.draw(data, options);
 }
 
-function drawSpreads(symbol, puts, calls, table_id) {
+function drawSpreads(symbol, puts, calls, table_id, touch_table_id) {
   const spotPrice = puts[0].underlyingPrice;
   // For each DTE, process each pair of consecutive strikes.
   function indexOptionsByDTE(options) {
@@ -250,9 +258,13 @@ function drawSpreads(symbol, puts, calls, table_id) {
     const sortedStrikes = puts.map(put => put.strike).sort(compareNumbers());
     const strikeToOverBets = new Map();
     const strikeToUnderBets = new Map();
-    const registerBet = (bet, map) => {
+    const strikeToTouchBets = new Map();
+    const registerBet = (bet, map, touchBetsMap) => {
       if (bet.earnedYield?.pessimisticAsBet > 1.0) {
         map.set(bet.bestStrike, bet)
+        if (bet.earnedYield?.pessimisticAsBet > 2.0) {
+          touchBetsMap.set(bet.bestStrike, bet);
+        }
       }
     };
     listToPairs(sortedStrikes).forEach(([lowStrike, highStrike]) => {
@@ -268,15 +280,22 @@ function drawSpreads(symbol, puts, calls, table_id) {
         return;
       }
       console.log(`${spotPrice} ${DTE} ${lowStrike}-${highStrike} : selected: ${selectedSpread[0].type}`);
-      registerBet(SpreadBet.createOver(...selectedSpread), strikeToOverBets);
-      registerBet(SpreadBet.createUnder(...selectedSpread), strikeToUnderBets);
+      registerBet(SpreadBet.createOver(...selectedSpread), strikeToOverBets, strikeToTouchBets);
+      registerBet(SpreadBet.createUnder(...selectedSpread), strikeToUnderBets, strikeToTouchBets);
     });
-    dteToBets.set(DTE, { strikeToOverBets, strikeToUnderBets });
+    dteToBets.set(DTE, { strikeToOverBets, strikeToUnderBets, strikeToTouchBets });
   });
 
   const betsTable = new Table({
     frozenColumns: 1,
+    frozenRows: 1,
     title: `All ${symbol} "Over" and "Under" bets (spreads). Each bet corresponds to a pair of puts; one bought and one`,
+  }).defineColumn(`${symbol} price`, strike => strike, "number", formatters.dollars());
+
+  const touchBetsTable = new Table({
+    frozenColumns: 1,
+    frozenRows: 1,
+    title: `All ${symbol} "Touch" bets. If the price ever touches the target before expiration, it wins`,
   }).defineColumn(`${symbol} price`, strike => strike, "number", formatters.dollars());
 
   const allStrikesArray = [...allStrikes].sort(compareNumbers(false));
@@ -289,6 +308,11 @@ function drawSpreads(symbol, puts, calls, table_id) {
     betsTable.defineColumn(`⬇️${DTE}`,
       strike => dteToBets.get(DTE).strikeToUnderBets.get(strike)?.earnedYield?.pessimisticAsBet || undefined,
       "number", formatters.two_decimals_number(), formatters.positiveYields());
+
+    touchBetsTable.defineColumn(`${DTE}`,
+      // The "/2" is a bit too complicated to explain here. Ask me!
+      strike => dteToBets.get(DTE).strikeToTouchBets.get(strike)?.earnedYield?.pessimisticAsBet / 2 || undefined,
+      "number", formatters.two_decimals_number(), formatters.positiveYields());
   });
 
   const { table } = betsTable.format(allStrikesArray, table_id);
@@ -299,7 +323,6 @@ function drawSpreads(symbol, puts, calls, table_id) {
   // From the row/col indexes, we have to find the corresponding spread,
   // then explain to the user how one can trade it, and how its yield
   // comes about.
-
   google.visualization.events.addListener(table, 'select', () => {
     const selection = table.getSelection();
     if (!selection.length) {
@@ -316,6 +339,9 @@ function drawSpreads(symbol, puts, calls, table_id) {
     const targetElement = document.getElementById(`${table_id}_explanation`);
     targetElement.innerHTML = bet.explanationHtml;
   });
+
+  const { touchTable } = touchBetsTable.format(allStrikesArray, touch_table_id);
+  // TODO: add a listener to touchTable?
 }
 
 function cacheKey(ticker) {

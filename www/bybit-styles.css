@@ -47,6 +47,14 @@
   padding: 10px;
 }
 
+.touchBets {
+  display: flex;
+  height: 600px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+}
+
 .explanation {
   max-width: 900px;
   border: 1px solid #000000;
