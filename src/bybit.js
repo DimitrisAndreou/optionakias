@@ -15,7 +15,7 @@ function loadOptions(symbol) {
         document.getElementById(`${symbol}_price`).textContent = `${formattedPrice}`;
       }
       drawPutsTable(symbol, puts, `${symbol}_puts_table`);
-      drawCallsTable(symbol, calls, `${symbol}_calls_table`);
+      drawCallsTable(symbol, symbol === "BTC" ? formatters.btcs() : formatters.eths(), calls, `${symbol}_calls_table`);
       drawPutsChart(symbol, puts, `${symbol}_puts_chart`);
       drawCallsChart(symbol, calls, `${symbol}_calls_chart`);
       drawSpreads(symbol, puts, calls, `${symbol}_spreads_table`, `${symbol}_touch_table`);
@@ -47,28 +47,21 @@ function drawPutsTable(symbol, puts, table_id) {
   putsTable.format(puts, table_id);
 }
 
-function drawCallsTable(symbol, calls, table_id) {
+function drawCallsTable(symbol, symbolFormatter, calls, table_id) {
   const callsTable = new Table({
-    frozenColumns: 4,
+    frozenColumns: 3,
     frozenRows: 1,
   })
-    .defineColumn("SYMBOL", () => symbol + " CALLS", "string")
     .defineColumn("EXPIRATION DATE", call => call.expirationDate, "date")
     .defineColumn("DAYS TILL EXPIRATION", call => call.DTE, "number")
     .defineColumn(`${symbol} CALL<br>STRIKE`, call => call.strike, "number", formatters.dollars())
-    .defineColumn("PREMIUM (=MAX GAIN) ($)", call => call.maxGain, "number", formatters.dollars())
-    .defineColumn("PREMIUM (%)", call => call.premiumAsPercent, "number", formatters.percent())
+    .defineColumn("PREMIUM ($)", call => call.maxGain, "number", formatters.dollars())
     .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
     .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent(), formatters.percentBiggerBetter())
+    .defineColumn(`PREMIUM (${symbol})`, call => call.premiumAsKind, "number", symbolFormatter)
+    .defineColumn(`BREAKEVEN ($, when premium=${symbol})`, call => call.breakEvenWithPremiumAsKind, "number", formatters.dollars())
+    .defineColumn(`BREAKEVEN (%, when premium=${symbol})`, call => call.breakEvenAsChangeWithPremiumAsKind, "number", formatters.percent(), formatters.percentBiggerBetter())
     ;
-  // TODO: offer these columns:
-  // 1..4) same first 4 columns as above
-  // 5) premium ($)
-  // 6) breakeven (if premium = $)
-  // 7) breakeven (%) (if premium = $)
-  // 8) premium (asset)
-  // 9) breakeven (if premium = asset)
-  // 10) breakeven (%) (if premium = asset)
   callsTable.format(calls, table_id);
 }
 
@@ -198,7 +191,7 @@ function drawCallsChart(symbol, calls, chart_id) {
         `Strike: ${formatters.dollars().formatValue(call.strike)}\n` +
         `Expiration: ${formatters.date().formatValue(call.expirationDate)}\n` +
         `BreakEven: ${formatters.dollars().formatValue(call.breakEven)}\n` +
-        `Max gain: ${formatters.dollars().formatValue(call.premium)}`;
+        `BreakEven As Change: ${formatters.percent().formatValue(call.breakEvenAsChange)}`;
       data.addRows([row]);
     });
 
@@ -279,7 +272,7 @@ function drawSpreads(symbol, puts, calls, table_id, touch_table_id) {
       if (selectedSpread.length !== 2) {
         return;
       }
-      console.log(`${spotPrice} ${DTE} ${lowStrike}-${highStrike} : selected: ${selectedSpread[0].type}`);
+      // console.log(`${spotPrice} ${DTE} ${lowStrike}-${highStrike} : selected: ${selectedSpread[0].type}`);
       registerBet(SpreadBet.createOver(...selectedSpread), strikeToOverBets, strikeToTouchBets);
       registerBet(SpreadBet.createUnder(...selectedSpread), strikeToUnderBets, strikeToTouchBets);
     });
