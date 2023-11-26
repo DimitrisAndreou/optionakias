@@ -52,15 +52,15 @@ function drawCallsTable(symbol, symbolFormatter, calls, table_id) {
     frozenColumns: 3,
     frozenRows: 1,
   })
-    .defineColumn("EXPIRATION DATE", call => call.expirationDate, "date")
-    .defineColumn("DAYS TILL EXPIRATION", call => call.DTE, "number")
+    .defineColumn("EXPIRATION<br>DATE", call => call.expirationDate, "date")
+    .defineColumn("DTE", call => call.DTE, "number")
     .defineColumn(`${symbol} CALL<br>STRIKE`, call => call.strike, "number", formatters.dollars())
     .defineColumn("PREMIUM ($)", call => call.maxGain, "number", formatters.dollars())
     .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
     .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent(), formatters.percentBiggerBetter())
-    .defineColumn(`PREMIUM (${symbol})`, call => call.premiumAsKind, "number", symbolFormatter)
-    .defineColumn(`BREAKEVEN ($, when premium=${symbol})`, call => call.breakEvenWithPremiumAsKind, "number", formatters.dollars())
-    .defineColumn(`BREAKEVEN (%, when premium=${symbol})`, call => call.breakEvenAsChangeWithPremiumAsKind, "number", formatters.percent(), formatters.percentBiggerBetter())
+    .defineColumn(`PREMIUM<br>(${symbol})`, call => call.premiumAsKind, "number", symbolFormatter)
+    .defineColumn(`BREAKEVEN<br>($, when premium=${symbol})`, call => call.breakEvenWithPremiumAsKind, "number", formatters.dollars())
+    .defineColumn(`BREAKEVEN<br>(%, when premium=${symbol})`, call => call.breakEvenAsChangeWithPremiumAsKind, "number", formatters.percent(), formatters.percentBiggerBetter())
     ;
   callsTable.format(calls, table_id);
 }
