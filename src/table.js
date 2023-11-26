@@ -49,7 +49,13 @@ google.charts.load('current', { 'packages': ['table'] });
 
 export const formatters = {
   dollars: () => new google.visualization.NumberFormat({
-    pattern: '$#,###'
+    pattern: '$#,##0'
+  }),
+  btcs: () => new google.visualization.NumberFormat({
+    pattern: '฿#,##0.000'
+  }),
+  eths: () => new google.visualization.NumberFormat({
+    pattern: 'Ξ#,##0.00'
   }),
   percent: () => new google.visualization.NumberFormat({
     pattern: '#,###%'

@@ -76,7 +76,7 @@ export class Option {
     this.underlyingPrice = parseFloat(struct.indexPrice);
     this.annualizedMaxGain = this.maxGain * 365 / this.DTE;
     this.maxGainAsChange = this.strike / this.underlyingPrice - 1;
-    this.premiumAsPercent = this.premium / this.underlyingPrice;
+    this.premiumAsKind = this.premium / this.underlyingPrice;
   }
 
   get isPut() { return this.type === 'PUT'; }
@@ -89,7 +89,14 @@ export class Option {
   // hence we use the bid.
   // The mark price can be very far away; pointless to don't use it.
   get premium() { return this.bidPrice; }
-  get maxGainInKind() { return this.premiumAsPercent; }
+  //   // premiumAsKind. Where is breakEven?
+  // calls:
+  // breakEven = strike + premium
+  // beyond strike:
+  // 1 loses
+  // premiumAsKind wins
+  // 1 - (2 * premiumAsKind) 
+  // x = strike / (1 - premiumAsKind)
 
   // This depends on a subclass defining "breakEven".
   get breakEvenAsChange() { return this.breakEven / this.underlyingPrice - 1.0; }
@@ -113,7 +120,6 @@ class PutOption extends Option {
     this.breakEvenVsHodler = this.underlyingPrice * (1 + this.maxGainRatio);
     this.gainAtCurrentPrice = Math.min(this.underlyingPrice - this.breakEven, this.maxGain);
     this.gainAtCurrentPriceRatio = this.gainAtCurrentPrice / this.maxLoss;
-    this.annualizedMaxGainInKind = this.maxGainInKind * 365 / this.DTE;
     this.annualizedMaxGainRatio = this.maxGainRatio * 365 / this.DTE;
   }
 
@@ -128,6 +134,18 @@ class CallOption extends Option {
     this.breakEven = this.strike + this.premium;
     this.gainAtCurrentPrice = Math.min(this.breakEven - this.underlyingPrice, this.maxGain);
     this.breakEvenVsShorter = this.underlyingPrice - this.premium;
+  }
+
+  // This is the breakeven you get if you immediately swap the premium for units of the underlying asset.
+  // Because when price = strike / (1 - premiumAsKind), the option has the negative value "strike-price",
+  // but on the premium side, the position has the positive value "premiumAsKind * price"
+  // Substitute the price and you get equivalence of the two.
+  get breakEvenWithPremiumAsKind() {
+    return this.strike / (1 - this.premiumAsKind);
+  }
+
+  get breakEvenAsChangeWithPremiumAsKind() {
+    return this.breakEvenWithPremiumAsKind / this.underlyingPrice - 1.0;
   }
 
   moneyness(underlyingPrice) {
