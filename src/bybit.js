@@ -368,7 +368,7 @@ function drawSpreads(symbol, puts, calls, table_id, touch_table_id) {
     // Explain how to play the bet.
 
     targetElement.innerHTML = `
-    <p>Summary:
+    <p><b>Summary</b>:
     <ul>
     <li>Target price: <b>${formatters.dollars().formatValue(strike)}</b></li>
     <li>Good for how many days: <b>${DTE}</b></li>
