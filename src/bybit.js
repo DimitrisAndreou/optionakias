@@ -370,8 +370,9 @@ function drawSpreads(symbol, puts, calls, table_id, touch_table_id) {
     targetElement.innerHTML = `
     <p><b>Summary</b>:
     <ul>
+    <li>Current spot price: <b>${formatters.dollars().formatValue(spotPrice)}</b></li>
     <li>Target price: <b>${formatters.dollars().formatValue(strike)}</b></li>
-    <li>Good for how many days: <b>${DTE}</b></li>
+    <li>Touch the target before how many days: <b>${DTE}</b></li>
     <li>Yield: <b>${formatters.two_decimals_number().formatValue(touchYield)}</b></li>
     <li>Equivalent CFD leverage: <b>${formatters.two_decimals_number().formatValue(requiredLeverage)}X</b></li>
     <li>Liquidation (stop loss) of the equivalent CFD position: <b>${formatters.dollars().formatValue(priceThatLiquidates)}</b></li>
