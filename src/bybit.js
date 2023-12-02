@@ -333,8 +333,66 @@ function drawSpreads(symbol, puts, calls, table_id, touch_table_id) {
     targetElement.innerHTML = bet.explanationHtml;
   });
 
-  const { touchTable } = touchBetsTable.format(allStrikesArray, touch_table_id);
-  // TODO: add a listener to touchTable?
+  const { table: touchTable } = touchBetsTable.format(allStrikesArray, touch_table_id);
+
+  google.visualization.events.addListener(touchTable, 'select', () => {
+    const selection = touchTable.getSelection();
+    if (!selection.length) {
+      return;
+    }
+    const row = selection[0].row;
+    const col = window.event.target.cellIndex;
+    const DTE = allDTEsArray[col - 1];
+    const strike = allStrikesArray[row];
+    const bet = dteToBets.get(DTE).strikeToTouchBets.get(strike);
+    const targetElement = document.getElementById(`${touch_table_id}_explanation`);
+
+    const touchYield = bet.earnedYield?.pessimisticAsBet / 2.0;
+    if (!touchYield || touchYield < 1.0) {
+      return;
+    }
+    // Let's compute a CFD-based bet with the same yield.
+    // That bet should produce the same yield at the same
+    // strike (ignoring fees). We will then compute the
+    // price where that bet would get liquidated.
+    const direction = strike > spotPrice ? 1 : -1;
+    const straightYield = strike > spotPrice ? strike / spotPrice : spotPrice / strike;
+    const requiredLeverage = (touchYield - 1) / (straightYield - 1);
+    const priceThatLiquidates = spotPrice - direction * (spotPrice / requiredLeverage);
+
+
+    // formatters.dollars().formatValue()
+    formatters.percent().formatValue()
+
+    // TODOs:
+    // Explain how to play the bet.
+
+    targetElement.innerHTML = `
+    <p>Summary:
+    <ul>
+    <li>Target price: <b>${formatters.dollars().formatValue(strike)}</b></li>
+    <li>Good for how many days: <b>${DTE}</b></li>
+    <li>Yield: <b>${formatters.two_decimals_number().formatValue(touchYield)}</b></li>
+    <li>Equivalent CFD leverage: <b>${formatters.two_decimals_number().formatValue(requiredLeverage)}X</b></li>
+    <li>Liquidation (stop loss) of the equivalent CFD position: <b>${formatters.dollars().formatValue(priceThatLiquidates)}</b></li>
+    </ul>
+
+    <p><b>To open this position</b>: It's identical to opening an <b>${direction > 0 ? "OVER" : "UNDER"}</b> position
+    that expires on ${DTE} days. The difference is that you will not let the position expire, but you need to close the
+    position <b>manually, when the price reaches the target</b>. The expected yield is going to be <b>at least</b> the
+    one mentioned in this table (i.e. (${formatters.two_decimals_number().formatValue(touchYield)})).
+    
+    <p> To accomplish the same yield with a usual CFD ("future") contract, 
+      assuming the price touches the same target (${formatters.dollars().formatValue(strike)}), you need
+      to use this leverage: ${formatters.two_decimals_number().formatValue(requiredLeverage)}X,
+      open your (<b>${direction > 0 ? "long" : "short"}</b>) position at the spot price 
+      (${formatters.dollars().formatValue(spotPrice)}). You will achieve the same yield
+      (${formatters.two_decimals_number().formatValue(touchYield)}) at ${formatters.dollars().formatValue(strike)},
+      and your liquidation price will be ${formatters.dollars().formatValue(priceThatLiquidates)}.
+      <b>This ignores overnight fees and any other cost associated with opening, maintaining, and closing
+      this position</b>.
+    `
+  });
 }
 
 function cacheKey(ticker) {
@@ -370,7 +428,7 @@ async function fetchByBitOptions(ticker = 'BTC') {
     }
     const options = response.result.list.map(struct => makeOption(struct));
     if (!options.length) {
-      alert(`No option fetched from ByBit (you probably got rate limited...try again later)`);
+      alert(`No option fetched from ByBit(you probably got rate limited...try again later)`);
     }
     const puts = options.filter(option => option.isPut);
     const calls = options.filter(option => option.isCall);
@@ -384,7 +442,7 @@ async function fetchByBitOptions(ticker = 'BTC') {
     return result;
   } catch (error) {
     console.error(error.stack);
-    alert(`Error fetching Bybit data: ${error}`);
+    alert(`Error fetching Bybit data: ${error} `);
     return [error];
   }
 }
