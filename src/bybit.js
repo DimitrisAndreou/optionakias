@@ -29,7 +29,7 @@ function loadOptions(symbol) {
 
 function drawPutsTable(symbol, puts, table_id) {
   const putsTable = new Table({
-    frozenColumns: 5,
+    frozenColumns: 4,
     frozenRows: 1,
   })
     .defineColumn("EXPIRATION<br>DATE", put => put.expirationDate, "date")
