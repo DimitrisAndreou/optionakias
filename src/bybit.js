@@ -29,12 +29,13 @@ function loadOptions(symbol) {
 
 function drawPutsTable(symbol, puts, table_id) {
   const putsTable = new Table({
-    frozenColumns: 4,
+    frozenColumns: 5,
     frozenRows: 1,
   })
     .defineColumn("EXPIRATION<br>DATE", put => put.expirationDate, "date")
     .defineColumn("DTE", put => put.DTE, "number")
     .defineColumn(`${symbol} PUT<br>STRIKE`, put => put.strike, "number", formatters.dollars())
+    .defineColumn(`STRIKE<br>As Change (%)`, put => put.strike / put.underlyingPrice - 1, "number", formatters.percent())
     .defineColumn("PREMIUM ($)<br>(=MAX GAIN)", put => put.maxGain, "number", formatters.dollars())
     .defineColumn("BREAKEVEN ($)<br>(=MAX LOSS)", put => put.breakEven, "number", formatters.dollars())
     .defineColumn("BREAKEVEN (%)", put => put.breakEvenAsChange, "number", formatters.percent(), formatters.percentSmallerBetter())
@@ -49,12 +50,13 @@ function drawPutsTable(symbol, puts, table_id) {
 
 function drawCallsTable(symbol, symbolFormatter, calls, table_id) {
   const callsTable = new Table({
-    frozenColumns: 3,
+    frozenColumns: 4,
     frozenRows: 1,
   })
     .defineColumn("EXPIRATION<br>DATE", call => call.expirationDate, "date")
     .defineColumn("DTE", call => call.DTE, "number")
     .defineColumn(`${symbol} CALL<br>STRIKE`, call => call.strike, "number", formatters.dollars())
+    .defineColumn(`STRIKE<br>As Change (%)`, call => call.strike / call.underlyingPrice - 1, "number", formatters.percent())
     .defineColumn("PREMIUM ($)", call => call.maxGain, "number", formatters.dollars())
     .defineColumn("BREAKEVEN ($)", call => call.breakEven, "number", formatters.dollars())
     .defineColumn("BREAKEVEN (%)", call => call.breakEvenAsChange, "number", formatters.percent(), formatters.percentBiggerBetter())
